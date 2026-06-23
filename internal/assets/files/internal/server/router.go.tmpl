@@ -1,0 +1,116 @@
+package server
+
+import (
+	"context"
+	"encoding/json"
+	"log/slog"
+	"net/http"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
+
+	"github.com/residwi/go-api-project-template/internal/features/auth"
+	"github.com/residwi/go-api-project-template/internal/features/user"
+	"github.com/residwi/go-api-project-template/internal/middleware"
+	"github.com/residwi/go-api-project-template/internal/platform/validator"
+)
+
+type Router struct {
+	Handler http.Handler
+}
+
+func NewRouter(deps *Deps) *Router {
+	mux := http.NewServeMux()
+
+	// Health check
+	mux.HandleFunc("GET /health", healthHandler(deps.Pool, deps.Redis))
+
+	// Validator
+	v := validator.New()
+
+	// Repositories
+	userRepo := user.NewPostgresRepository(deps.Pool)
+
+	// Services
+	userSvc := user.NewService(userRepo, deps.Redis)
+	authSvc := auth.NewService(
+		userSvc,
+		deps.Config.JWT.Secret,
+		deps.Config.JWT.Issuer,
+		deps.Config.JWT.AccessTokenTTL,
+		deps.Config.JWT.RefreshTokenTTL,
+	)
+	authSvc.SetBcryptCost(deps.Config.App.BcryptCost)
+
+	// Middleware
+	tokenValidator := auth.NewTokenValidatorAdapter(authSvc)
+	authMiddleware := middleware.Auth(tokenValidator, userSvc)
+	adminMiddleware := middleware.RequireAdmin
+
+	// Route groups
+	authed := middleware.NewRouteGroup(mux, "/api", authMiddleware)
+	admin := middleware.NewRouteGroup(mux, "/api/admin", authMiddleware, adminMiddleware)
+
+	// Auth endpoints run synchronous bcrypt and are unauthenticated, so they get a
+	// dedicated per-IP rate limiter to blunt credential-stuffing / CPU exhaustion.
+	authLimiter := middleware.RateLimit(deps.Redis, deps.Config.App.AuthRateLimit, deps.Config.App.AuthRateWindow)
+	authPublic := middleware.NewRouteGroup(mux, "/api", authLimiter)
+
+	// Feature routes
+	auth.RegisterRoutes(authPublic, auth.RouteDeps{Validator: v, Service: authSvc})
+	user.RegisterRoutes(authed, admin, user.RouteDeps{Validator: v, Service: userSvc})
+
+	return &Router{
+		Handler: middleware.Chain(
+			middleware.RequestID,
+			middleware.Logging,
+			middleware.Recovery,
+			middleware.CORS(deps.Config.CORS),
+		)(mux),
+	}
+}
+
+func healthHandler(pool *pgxpool.Pool, rdb *redis.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		status := "healthy"
+		httpStatus := http.StatusOK
+		details := make(map[string]string)
+
+		if err := pool.Ping(r.Context()); err != nil {
+			status = "unhealthy"
+			httpStatus = http.StatusServiceUnavailable
+			details["postgres"] = "down"
+			slog.ErrorContext(r.Context(), "health check: postgres down", "error", err)
+		} else {
+			details["postgres"] = "up"
+		}
+
+		checkRedis(r.Context(), rdb, &status, &httpStatus, details)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(httpStatus)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status":  status,
+			"details": details,
+		})
+	}
+}
+
+func checkRedis(ctx context.Context, rdb *redis.Client, status *string, httpStatus *int, details map[string]string) {
+	if rdb == nil {
+		details["redis"] = "not configured"
+		return
+	}
+
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		if *status == "healthy" {
+			*status = "degraded"
+			*httpStatus = http.StatusServiceUnavailable
+		}
+		details["redis"] = "down"
+		slog.WarnContext(ctx, "health check: redis down", "error", err)
+		return
+	}
+
+	details["redis"] = "up"
+}

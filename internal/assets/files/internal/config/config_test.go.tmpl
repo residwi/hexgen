@@ -1,0 +1,48 @@
+package config
+
+import (
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestLoad_Defaults(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret-key-at-least-32-chars-long")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.Equal(t, 8080, cfg.App.Port)
+	assert.Equal(t, "development", cfg.App.Env)
+	assert.Equal(t, time.Minute, cfg.App.AuthRateWindow)
+{{- if .Worker}}
+	assert.Equal(t, 5, cfg.Worker.Concurrency)
+{{- end}}
+}
+
+func TestLoad_RejectsSubSecondAuthRateWindow(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret-key-at-least-32-chars-long")
+	t.Setenv("AUTH_RATE_WINDOW", "500ms")
+
+	_, err := Load()
+	assert.Error(t, err)
+}
+{{- if .Worker}}
+
+func TestLoad_RejectsZeroWorkerConcurrency(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret-key-at-least-32-chars-long")
+	t.Setenv("WORKER_CONCURRENCY", "0")
+
+	_, err := Load()
+	assert.Error(t, err)
+}
+
+func TestLoad_RejectsSubFiveSecondWorkerInterval(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret-key-at-least-32-chars-long")
+	t.Setenv("WORKER_INTERVAL", "1s")
+
+	_, err := Load()
+	assert.Error(t, err)
+}
+{{- end}}
