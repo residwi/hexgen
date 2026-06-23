@@ -20,12 +20,10 @@ module path, and writes a ready-to-run project.
 ## Install
 
 ```bash
-go install github.com/residwi/go-project-generator@latest
+go install github.com/residwi/go-project-generator/cmd/gen@latest
 ```
 
-This installs a binary named `go-project-generator`. The docs below use `gen` —
-rename the installed binary, or build it from source with `make build` (which
-outputs `bin/gen`).
+Or build from source with `make build`, which outputs `bin/gen`.
 
 ## Usage
 

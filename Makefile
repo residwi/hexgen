@@ -10,15 +10,15 @@ help: ## Display this help
 .PHONY: build
 build: ## Build the gen binary into bin/
 	@echo "Building $(BINARY)..."
-	go build -o $(BIN_DIR)/$(BINARY) .
+	go build -o $(BIN_DIR)/$(BINARY) ./cmd/gen
 
 .PHONY: install
 install: ## Install gen into $(go env GOPATH)/bin
-	go install .
+	go install ./cmd/gen
 
 .PHONY: run
 run: ## Run gen (pass args via ARGS='new myapp --module github.com/me/myapp')
-	go run . $(ARGS)
+	go run ./cmd/gen $(ARGS)
 
 .PHONY: test
 test: ## Run all tests including the network e2e (-race)
