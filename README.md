@@ -73,16 +73,6 @@ nothing syncs it back. Edit the files under `internal/template/testdata/`
 directly, and to bring over a fix from the template, port it by hand and run
 `make e2e`.
 
-- `testdata/` keeps the skeleton out of the hexgen build, since its Go files
-  import the placeholder module path. `go.mod` is stored as `go.mod.tmpl`
-  because `go:embed` refuses a directory that is its own module.
-- Keep it generic: no names from the template's shop domain. A template test
-  fails on shop terms (cart, order, checkout, product, ...) or on the template's
-  name.
-- Keep `.go` files valid, gofmt-clean Go. Use `.tmpl` only for `go.mod` and
-  files with `{{if .Auth}}` content. Files that contain a literal `{{` (the
-  GitHub workflows, `.mockery.yml`) stay plain.
-
 ## Development
 
 ```bash
