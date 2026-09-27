@@ -1,0 +1,30 @@
+package app
+
+import (
+	"github.com/residwi/go-api-project-template/internal/config"
+	"github.com/residwi/go-api-project-template/internal/platform/database"
+)
+
+// Config holds each feature module's own env config.
+type Config struct{}
+
+func PoolOptions(cfg config.Database) database.PostgresOptions {
+	return database.PostgresOptions{
+		DSN:             cfg.DSN(),
+		MaxConns:        cfg.MaxConns,
+		MinConns:        cfg.MinConns,
+		MaxConnLifetime: cfg.MaxConnLifetime,
+		MaxConnIdleTime: cfg.MaxConnIdleTime,
+	}
+}
+
+func ReplicaPoolOptions(cfg config.Database) database.PostgresOptions {
+	opts := PoolOptions(cfg)
+	opts.DSN = cfg.ReplicaURL
+
+	return opts
+}
+
+func LoadConfig() (Config, error) {
+	return Config{}, nil
+}

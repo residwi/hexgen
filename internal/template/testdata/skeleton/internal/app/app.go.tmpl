@@ -1,0 +1,23 @@
+package app
+
+import (
+	"log/slog"
+
+	"github.com/redis/go-redis/v9"
+
+	"github.com/residwi/go-api-project-template/internal/platform/database"
+)
+
+// Services holds one Service per feature module; server.NewRouter mounts
+// their handlers.
+type Services struct{}
+
+// New builds every feature module's Service and wires the ports between them.
+func New(
+	cfg Config,
+	db database.DB,
+	cache *redis.Client,
+	logger *slog.Logger,
+) (*Services, error) {
+	return &Services{}, nil
+}

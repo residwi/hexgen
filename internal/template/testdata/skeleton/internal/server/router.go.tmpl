@@ -1,0 +1,69 @@
+package server
+
+import (
+	"encoding/json"
+	"log/slog"
+	"net/http"
+
+	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+
+	"github.com/residwi/go-api-project-template/internal/app"
+	"github.com/residwi/go-api-project-template/internal/config"
+	"github.com/residwi/go-api-project-template/internal/platform/web"
+	"github.com/residwi/go-api-project-template/internal/platform/web/middleware"
+)
+
+func NewRouter(
+	appCfg *config.Settings,
+	modCfg app.Config,
+	cache *redis.Client,
+	logger *slog.Logger,
+	deps *app.Services,
+) http.Handler {
+	mux := http.NewServeMux()
+
+	router := web.NewRouter(mux)
+	router.HandleFunc("GET /health", healthHandler())
+
+	apiLimiter := middleware.RateLimit(
+		logger,
+		cache,
+		"api",
+		appCfg.App.APIRateLimit,
+		appCfg.App.APIRateLimit,
+		appCfg.App.APIRateWindow,
+	)
+
+	api := router.Group("/api", apiLimiter)
+	_ = api // hexgen feature mounts routes here
+
+	return web.Chain(
+		middleware.ClientIP(logger, appCfg.App.TrustedProxies),
+		middleware.RequestID,
+		// otelhttp reads r.Pattern off the request object it passed down, and
+		// ServeMux sets Pattern in place when it routes. Any middleware between
+		// otelhttp and the mux that calls r.WithContext hands ServeMux a
+		// different object, leaving every span named "GET". ClientIP and
+		// RequestID both copy the request, so both must stay above otelhttp.
+		otelhttp.NewMiddleware("",
+			otelhttp.WithFilter(func(r *http.Request) bool { return r.URL.Path != "/health" }),
+		),
+		middleware.Logging(logger),
+		middleware.Recovery(logger),
+		middleware.CORS(middleware.CORSOptions{
+			AllowedOrigins: appCfg.CORS.AllowedOrigins,
+			AllowedMethods: appCfg.CORS.AllowedMethods,
+			AllowedHeaders: appCfg.CORS.AllowedHeaders,
+			MaxAge:         appCfg.CORS.MaxAge,
+		}),
+	)(mux)
+}
+
+func healthHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
+	}
+}
