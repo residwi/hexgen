@@ -106,7 +106,18 @@ func checkProject(t *testing.T, dir string) {
 		t.Log("docker unavailable: skipping go test in the generated project")
 		return
 	}
+	// testutil reuses its containers by name across runs, so a database left by
+	// an earlier run of a different skeleton would carry stale migrations.
+	removeTestContainers(t, filepath.Base(dir))
+	t.Cleanup(func() { removeTestContainers(t, filepath.Base(dir)) })
 	run(t, dir, "go", "test", "-count=1", "./...")
+}
+
+// removeTestContainers deletes the generated project's testutil containers.
+func removeTestContainers(t *testing.T, project string) {
+	t.Helper()
+	out, err := exec.Command("docker", "rm", "-f", project+"-test-postgres", project+"-test-redis").CombinedOutput()
+	require.NoErrorf(t, err, "removing test containers:\n%s", out)
 }
 
 func readFile(t *testing.T, root, rel string) string {
