@@ -36,6 +36,8 @@ func TestEndToEnd(t *testing.T) {
 		}, template.Skeleton())
 
 		assertMissing(t, out, "internal/features")
+		assert.NotContains(t, readFile(t, out, "Makefile"), "\nseed:", "no seed data without auth")
+		assert.NotContains(t, readFile(t, out, ".env.example"), "JWT_")
 		checkProject(t, out)
 	})
 
@@ -53,6 +55,9 @@ func TestEndToEnd(t *testing.T) {
 			features = append(features, e.Name())
 		}
 		assert.ElementsMatch(t, []string{"auth", "user"}, features)
+		assert.Contains(t, readFile(t, out, "Makefile"), "\nseed:")
+		assert.Contains(t, readFile(t, out, ".env.example"), "JWT_SECRET=")
+		assert.Contains(t, readFile(t, out, "README.md"), "POST /api/auth/login")
 		checkProject(t, out)
 	})
 }
@@ -102,6 +107,13 @@ func checkProject(t *testing.T, dir string) {
 		return
 	}
 	run(t, dir, "go", "test", "-count=1", "./...")
+}
+
+func readFile(t *testing.T, root, rel string) string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(root, rel))
+	require.NoError(t, err)
+	return string(data)
 }
 
 func assertExists(t *testing.T, root, rel string) {

@@ -224,3 +224,11 @@ ci: deps fmt vet check-arch lint test ## Run CI pipeline
 test-clean: ## Remove this project's test containers (postgres + redis)
 	@echo "Removing test containers..."
 	@docker rm -f __PROJECT_NAME__-test-postgres __PROJECT_NAME__-test-redis 2>/dev/null || true
+{{- if .Auth}}
+
+.PHONY: seed
+seed: ## Apply seed data to the database (override DATABASE_URL or DB_* vars)
+	@if [ -z "$(DATABASE_URL)" ]; then echo "DATABASE_URL is not set"; exit 1; fi
+	@echo "Applying seed data..."
+	psql "$(DATABASE_URL)" -f db/seeds/data.sql
+{{- end}}
