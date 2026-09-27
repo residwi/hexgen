@@ -83,6 +83,18 @@ func TestTrees_ContainNoTemplateContext(t *testing.T) {
 	}
 }
 
+func TestSkeleton_MigratesRiverSchema(t *testing.T) {
+	matches, err := fs.Glob(Skeleton(), "db/migrations/*_river.sql")
+	require.NoError(t, err)
+	require.Len(t, matches, 1, "River's schema should be one goose migration")
+
+	data, err := fs.ReadFile(Skeleton(), matches[0])
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "-- +goose Up")
+	assert.Contains(t, string(data), "CREATE TABLE river_job(")
+	assert.Contains(t, string(data), "-- +goose Down")
+}
+
 func TestSkeleton_HasNoFeatures(t *testing.T) {
 	_, err := fs.Stat(Skeleton(), "internal/features")
 	assert.ErrorIs(t, err, fs.ErrNotExist)

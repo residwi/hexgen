@@ -19,8 +19,6 @@ import (
 	"github.com/ory/dockertest/v3/docker"
 	"github.com/pressly/goose/v3"
 	"github.com/redis/go-redis/v9"
-	"github.com/riverqueue/river/riverdriver/riverpgxv5"
-	"github.com/riverqueue/river/rivermigrate"
 )
 
 const (
@@ -177,7 +175,7 @@ func ResetDB(t testing.TB, pool *pgxpool.Pool) {
 	err := pool.QueryRow(ctx, `
 		SELECT string_agg(quote_ident(tablename), ', ')
 		FROM pg_tables
-		WHERE schemaname = 'public' AND tablename NOT IN ('goose_db_version', 'river_migration')
+		WHERE schemaname = 'public' AND tablename <> 'goose_db_version'
 	`).Scan(&tableList)
 	if err != nil || tableList == "" {
 		return
@@ -259,17 +257,6 @@ func runMigrations(ctx context.Context, pool *pgxpool.Pool) {
 		os.Exit(1)
 	}
 	_ = db.Close()
-
-	migrator, err := rivermigrate.New(riverpgxv5.New(pool), nil)
-	if err != nil {
-		harnessLogger().ErrorContext(ctx, "testutil: rivermigrate.New", slog.String("error", err.Error()))
-		os.Exit(1)
-	}
-
-	if _, err := migrator.Migrate(ctx, rivermigrate.DirectionUp, nil); err != nil {
-		harnessLogger().ErrorContext(ctx, "testutil: rivermigrate.Migrate", slog.String("error", err.Error()))
-		os.Exit(1)
-	}
 }
 
 func harnessLogger() *slog.Logger {

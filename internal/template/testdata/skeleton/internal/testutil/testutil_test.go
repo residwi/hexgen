@@ -82,8 +82,8 @@ func TestMustStartPostgresConcurrentCreateWaitsForMigration(t *testing.T) {
 			defer wg.Done()
 			pool, cleanup := testutil.MustStartPostgres(name)
 			cleanups[i] = cleanup
-			// river_job is created by the last migration step (River runs after
-			// goose), so querying it proves this pool's schema is fully migrated.
+			// river_job is created by a migration, so querying it proves this
+			// pool's schema is migrated.
 			var count int
 			errs[i] = pool.QueryRow(context.Background(), `SELECT count(*) FROM river_job`).Scan(&count)
 		}(i)
@@ -164,19 +164,19 @@ func TestResetDBSurvivesASecondMustStartPostgresCall(t *testing.T) {
 
 	testutil.ResetDB(t, pool)
 
-	var riverMigrationRows int
+	var appliedMigrations int
 	require.NoError(t, pool.QueryRow(t.Context(),
-		`SELECT count(*) FROM river_migration`).Scan(&riverMigrationRows))
-	assert.NotZero(t, riverMigrationRows,
-		"ResetDB must not wipe river_migration: it is a migration ledger, like goose_db_version")
+		`SELECT count(*) FROM goose_db_version`).Scan(&appliedMigrations))
+	assert.NotZero(t, appliedMigrations,
+		"ResetDB must not wipe goose_db_version: it is the migration ledger")
 
 	pool2, cleanup2 := testutil.MustStartPostgres("test_testutil")
 	t.Cleanup(cleanup2)
 
 	require.NoError(t, pool2.QueryRow(t.Context(),
-		`SELECT count(*) FROM river_migration`).Scan(&riverMigrationRows))
-	assert.NotZero(t, riverMigrationRows,
-		"a second MustStartPostgres call must not re-run River's migration against a table that already exists")
+		`SELECT count(*) FROM goose_db_version`).Scan(&appliedMigrations))
+	assert.NotZero(t, appliedMigrations,
+		"a second MustStartPostgres call must not re-run migrations against tables that already exist")
 }
 
 // adminDSN reconstructs the maintenance-database DSN from an already-connected

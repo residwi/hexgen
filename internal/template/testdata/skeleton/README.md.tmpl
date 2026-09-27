@@ -17,8 +17,8 @@ make setup            # dev tooling, and .env from .env.example
 # set JWT_SECRET in .env first: openssl rand -hex 32
 {{- end}}
 make docker-up        # start postgres and redis
-make migrate-install  # goose and river CLIs
-make migrate-up       # apply db/migrations
+make migrate-install  # goose CLI
+make migrate-up       # apply db/migrations (includes River's job tables)
 {{- if .Auth}}
 make seed             # dev admin: admin@example.com / admin123456
 {{- end}}
@@ -26,7 +26,9 @@ make run              # API on :8080
 curl localhost:8080/health
 ```
 
-Run `make migrate-jobs` too once a module enqueues River jobs.
+River's schema is a goose migration (`db/migrations/*_river.sql`). When you
+upgrade River, add a migration for the new schema versions from
+`river migrate-get --version <n> --up` and `--down`.
 {{- if .Auth}}
 
 ## Auth and Users
