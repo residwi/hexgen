@@ -3,7 +3,7 @@ package auth
 import (
 	"time"
 
-	"github.com/residwi/go-api-project-template/internal/features/user"
+	"__MODULE__/internal/features/user"
 )
 
 type TokenPair struct {

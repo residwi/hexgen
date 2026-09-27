@@ -5,12 +5,12 @@ import (
 
 	"github.com/redis/go-redis/v9"
 {{if .Auth}}
-	"github.com/residwi/go-api-project-template/internal/features/auth"
-	authjwt "github.com/residwi/go-api-project-template/internal/features/auth/adapter/jwt"
-	"github.com/residwi/go-api-project-template/internal/features/user"
-	userpg "github.com/residwi/go-api-project-template/internal/features/user/adapter/postgres"
+	"__MODULE__/internal/features/auth"
+	authjwt "__MODULE__/internal/features/auth/adapter/jwt"
+	"__MODULE__/internal/features/user"
+	userpg "__MODULE__/internal/features/user/adapter/postgres"
 {{- end}}
-	"github.com/residwi/go-api-project-template/internal/platform/database"
+	"__MODULE__/internal/platform/database"
 )
 
 // Services holds one Service per feature module; server.NewRouter mounts

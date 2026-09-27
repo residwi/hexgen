@@ -14,11 +14,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/residwi/go-api-project-template/internal/features/user"
-	"github.com/residwi/go-api-project-template/internal/features/user/domain"
-	"github.com/residwi/go-api-project-template/internal/platform/database"
-	"github.com/residwi/go-api-project-template/internal/platform/errs"
-	"github.com/residwi/go-api-project-template/internal/testutil"
+	"__MODULE__/internal/features/user"
+	"__MODULE__/internal/features/user/domain"
+	"__MODULE__/internal/platform/database"
+	"__MODULE__/internal/platform/errs"
+	"__MODULE__/internal/testutil"
 )
 
 // This package shares test_user with every other user postgres access in

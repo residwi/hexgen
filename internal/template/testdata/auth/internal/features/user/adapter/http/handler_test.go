@@ -15,11 +15,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/residwi/go-api-project-template/internal/features/user/domain"
-	"github.com/residwi/go-api-project-template/internal/platform/errs"
-	"github.com/residwi/go-api-project-template/internal/platform/identity"
-	"github.com/residwi/go-api-project-template/internal/platform/web"
-	"github.com/residwi/go-api-project-template/internal/platform/web/response"
+	"__MODULE__/internal/features/user/domain"
+	"__MODULE__/internal/platform/errs"
+	"__MODULE__/internal/platform/identity"
+	"__MODULE__/internal/platform/web"
+	"__MODULE__/internal/platform/web/response"
 )
 
 func TestHandler_GetByID(t *testing.T) {

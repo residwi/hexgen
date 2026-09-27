@@ -6,7 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 
-	"github.com/residwi/go-api-project-template/internal/platform/database"
+	"__MODULE__/internal/platform/database"
 )
 
 func Insert(

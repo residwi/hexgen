@@ -12,12 +12,12 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/residwi/go-api-project-template/internal/app"
-	"github.com/residwi/go-api-project-template/internal/config"
-	"github.com/residwi/go-api-project-template/internal/platform/cache"
-	"github.com/residwi/go-api-project-template/internal/platform/database"
-	"github.com/residwi/go-api-project-template/internal/platform/logger"
-	"github.com/residwi/go-api-project-template/internal/platform/tracing"
+	"__MODULE__/internal/app"
+	"__MODULE__/internal/config"
+	"__MODULE__/internal/platform/cache"
+	"__MODULE__/internal/platform/database"
+	"__MODULE__/internal/platform/logger"
+	"__MODULE__/internal/platform/tracing"
 )
 
 func Run() error {

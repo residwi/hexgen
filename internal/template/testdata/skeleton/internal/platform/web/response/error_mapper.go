@@ -3,7 +3,7 @@ package response
 import (
 	"net/http"
 
-	"github.com/residwi/go-api-project-template/internal/platform/errs"
+	"__MODULE__/internal/platform/errs"
 )
 
 func HandleErr(w http.ResponseWriter, err error) {

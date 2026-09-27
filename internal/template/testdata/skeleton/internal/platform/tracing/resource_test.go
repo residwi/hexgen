@@ -18,11 +18,11 @@ func TestNewResource(t *testing.T) {
 	})
 
 	t.Run("lets OTEL_SERVICE_NAME override the given service name", func(t *testing.T) {
-		t.Setenv("OTEL_SERVICE_NAME", "checkout-api")
+		t.Setenv("OTEL_SERVICE_NAME", "example-api")
 
 		res, err := newResource(t.Context(), "__PROJECT_NAME__", "development")
 		require.NoError(t, err)
 
-		assert.Contains(t, res.Attributes(), attribute.String("service.name", "checkout-api"))
+		assert.Contains(t, res.Attributes(), attribute.String("service.name", "example-api"))
 	})
 }

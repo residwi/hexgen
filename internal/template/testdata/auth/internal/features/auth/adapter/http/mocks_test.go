@@ -7,7 +7,7 @@ package http
 import (
 	"context"
 
-	"github.com/residwi/go-api-project-template/internal/features/auth"
+	"__MODULE__/internal/features/auth"
 	mock "github.com/stretchr/testify/mock"
 )
 

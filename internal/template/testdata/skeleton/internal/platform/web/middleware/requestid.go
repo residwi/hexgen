@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/residwi/go-api-project-template/internal/platform/logger"
+	"__MODULE__/internal/platform/logger"
 )
 
 func RequestID(next http.Handler) http.Handler {

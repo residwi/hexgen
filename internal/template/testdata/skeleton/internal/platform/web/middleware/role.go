@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/residwi/go-api-project-template/internal/platform/identity"
-	"github.com/residwi/go-api-project-template/internal/platform/web/response"
+	"__MODULE__/internal/platform/identity"
+	"__MODULE__/internal/platform/web/response"
 )
 
 func Require(log *slog.Logger, denied string, pred func(identity.Identity) bool) func(http.Handler) http.Handler {

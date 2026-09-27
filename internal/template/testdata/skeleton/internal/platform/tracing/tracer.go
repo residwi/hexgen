@@ -15,7 +15,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/residwi/go-api-project-template/internal/platform/errs"
+	"__MODULE__/internal/platform/errs"
 )
 
 const flushTimeout = 5 * time.Second

@@ -147,7 +147,7 @@ func TestContextHandlerTraceAttributes(t *testing.T) {
 		log := slog.New(ContextHandler{Handler: slog.NewJSONHandler(&buf, nil)})
 
 		provider := sdktrace.NewTracerProvider()
-		ctx, span := provider.Tracer("test").Start(context.Background(), "cart.Add")
+		ctx, span := provider.Tracer("test").Start(context.Background(), "item.Create")
 		defer span.End()
 
 		log.InfoContext(ctx, "hello")

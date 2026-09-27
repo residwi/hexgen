@@ -2,6 +2,7 @@ package template
 
 import (
 	"io/fs"
+	"regexp"
 	"strings"
 	"testing"
 	texttemplate "text/template"
@@ -60,7 +61,12 @@ func TestTrees_ExcludeECommerceAndWorkerPaths(t *testing.T) {
 	}
 }
 
-func TestTrees_ContainNoECommerceName(t *testing.T) {
+// eCommerceTerms are words from the template's shop domain that must not leak
+// into a generic skeleton. "checkout" is matched only outside actions/checkout.
+var eCommerceTerms = regexp.MustCompile(`(?i)\b(ecommerce|carts?|checkout|products?|customers?|payments?|` +
+	`inventory|coupons?|wishlists?|shipping|shipments?|promotions?|categor(y|ies))\b|\border(\.|'s)`)
+
+func TestTrees_ContainNoTemplateContext(t *testing.T) {
 	for name, tree := range map[string]fs.FS{"skeleton": Skeleton(), "auth": Auth()} {
 		err := fs.WalkDir(tree, ".", func(p string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() {
@@ -68,8 +74,9 @@ func TestTrees_ContainNoECommerceName(t *testing.T) {
 			}
 			data, err := fs.ReadFile(tree, p)
 			require.NoError(t, err)
-			assert.Falsef(t, strings.Contains(strings.ToLower(string(data)), "ecommerce"),
-				"%s: %s should not mention ecommerce", name, p)
+			s := strings.ReplaceAll(string(data), "actions/checkout", "")
+			assert.Emptyf(t, eCommerceTerms.FindAllString(s, -1), "%s: %s uses e-commerce terms", name, p)
+			assert.NotContainsf(t, s, "go-api-project-template", "%s: %s names the template", name, p)
 			return nil
 		})
 		require.NoError(t, err)

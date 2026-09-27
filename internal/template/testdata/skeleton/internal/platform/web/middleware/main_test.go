@@ -7,7 +7,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/residwi/go-api-project-template/internal/testutil"
+	"__MODULE__/internal/testutil"
 )
 
 var testRedis *redis.Client

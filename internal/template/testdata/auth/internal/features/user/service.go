@@ -8,9 +8,9 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/residwi/go-api-project-template/internal/features/user/domain"
-	"github.com/residwi/go-api-project-template/internal/platform/errs"
-	"github.com/residwi/go-api-project-template/internal/platform/tracing"
+	"__MODULE__/internal/features/user/domain"
+	"__MODULE__/internal/platform/errs"
+	"__MODULE__/internal/platform/tracing"
 )
 
 type Service struct {
@@ -21,7 +21,7 @@ type Service struct {
 func New(repo Repository) *Service {
 	return &Service{
 		repo:   repo,
-		tracer: otel.Tracer("github.com/residwi/go-api-project-template/internal/features/user"),
+		tracer: otel.Tracer("__MODULE__/internal/features/user"),
 	}
 }
 

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/residwi/go-api-project-template/internal/features/auth/domain"
+	"__MODULE__/internal/features/auth/domain"
 )
 
 const (
@@ -22,7 +22,7 @@ func TestTokens_Verify(t *testing.T) {
 
 	claims := domain.Claims{
 		UserID:       uuid.New(),
-		Role:         "customer",
+		Role:         "user",
 		TokenVersion: 1,
 	}
 
@@ -136,7 +136,7 @@ func TestTokens_Verify(t *testing.T) {
 		tok := jwt.NewWithClaims(jwt.SigningMethodNone, jwt.MapClaims{
 			"user_id": uuid.New().String(),
 			"email":   "user@example.com",
-			"role":    "customer",
+			"role":    "user",
 			"kind":    "access",
 			"iss":     testIssuer,
 			"exp":     time.Now().Add(15 * time.Minute).Unix(),

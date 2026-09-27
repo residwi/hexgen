@@ -36,7 +36,7 @@ formatters:
       # with the given prefixes are grouped after 3rd-party packages.
       # Default: []
       local-prefixes:
-        - github.com/residwi/go-api-project-template
+        - __MODULE__
 
     golines:
       # Target maximum line length.
@@ -44,7 +44,7 @@ formatters:
       max-len: 120
 
     gofumpt:
-      module-path: github.com/residwi/go-api-project-template
+      module-path: __MODULE__
 
 linters:
   enable:
@@ -553,23 +553,19 @@ linters:
       # itself. Excluding per-file instead of per-package is what made this
       # list wrong the first time.
       # Nothing is lost: `go test` already runs these packages concurrently
-      # with each other. Most own their database outright; order's adapter
-      # shares test_order with nothing else now that its slices have merged,
-      # but still seeds and deletes its own rows by id rather than calling
-      # ResetDB. Either way, the only concurrency t.Parallel could add within
-      # one package is the unsafe kind.
+      # with each other, and each owns its database outright, so the only
+      # concurrency t.Parallel could add within one package is the unsafe kind.
       # internal/platform/tracing is here for a different reason: its tests
       # call t.Setenv and swap OpenTelemetry's process-global provider, so a
       # parallel sibling would read a provider another test installed.
-      - path: (^db/seeds/|/postgres/|^test/e2e/|^internal/testutil/|^internal/platform/(cache|database)/|^internal/platform/jobqueue/|^internal/platform/web/middleware/|^internal/platform/tracing/|/redis/|^internal/server/[^/]+_test\.go|^internal/app/|^internal/worker/)
+      - path: (^db/seeds/|/postgres/|^internal/testutil/|^internal/platform/(cache|database)/|^internal/platform/jobqueue/|^internal/platform/web/middleware/|^internal/platform/tracing/|/redis/|^internal/server/[^/]+_test\.go|^internal/app/)
         linters: [paralleltest]
       # t.Setenv panics when the test, or an ancestor, calls t.Parallel.
       # paralleltest already knows that and skips the test doing the Setenv, so
       # what this covers is the tests *beside* it: the process environment is
-      # global, so a parallel sibling races a Setenv it never calls. Five of the
-      # six files have such a sibling today -- every one but internal/config,
-      # whose package holds no other test file. It is listed for the same
-      # whole-file reason the exclusion above states: naming only the files that
-      # currently report is what made that list wrong the first time.
+      # global, so a parallel sibling races a Setenv it never calls. Every file
+      # is listed whole, even one with no sibling yet, for the reason the
+      # exclusion above states: naming only the files that currently report is
+      # what made that list wrong the first time.
       - path: ^internal/((config/config_test|platform/logger/logger_test)|features/auth/config_test)\.go
         linters: [paralleltest]

@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/residwi/go-api-project-template/internal/testutil"
+	"__MODULE__/internal/testutil"
 )
 
 // Two sequential calls stand in for two test binaries racing on the same

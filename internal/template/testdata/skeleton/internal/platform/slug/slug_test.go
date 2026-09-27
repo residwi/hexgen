@@ -18,7 +18,7 @@ func TestMake(t *testing.T) {
 	t.Run("special chars", func(t *testing.T) {
 		t.Parallel()
 
-		assert.Equal(t, "product-1-2024", Make("Product #1 (2024)"))
+		assert.Equal(t, "item-1-2024", Make("Item #1 (2024)"))
 	})
 
 	t.Run("multiple spaces", func(t *testing.T) {
@@ -66,7 +66,7 @@ func TestMake(t *testing.T) {
 	t.Run("hyphens preserved", func(t *testing.T) {
 		t.Parallel()
 
-		assert.Equal(t, "my-cool-product", Make("my-cool-product"))
+		assert.Equal(t, "my-cool-item", Make("my-cool-item"))
 	})
 
 	t.Run("multiple hyphens collapsed", func(t *testing.T) {

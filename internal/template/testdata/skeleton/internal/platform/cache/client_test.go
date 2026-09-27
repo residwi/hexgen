@@ -14,7 +14,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.opentelemetry.io/otel/trace/noop"
 
-	"github.com/residwi/go-api-project-template/internal/testutil"
+	"__MODULE__/internal/testutil"
 )
 
 var testRedisClient *redis.Client

@@ -6,9 +6,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/residwi/go-api-project-template/internal/features/user/domain"
-	"github.com/residwi/go-api-project-template/internal/platform/web/request"
-	"github.com/residwi/go-api-project-template/internal/platform/web/response"
+	"__MODULE__/internal/features/user/domain"
+	"__MODULE__/internal/platform/web/request"
+	"__MODULE__/internal/platform/web/response"
 )
 
 type ProfileManager interface {

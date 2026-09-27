@@ -14,7 +14,7 @@ func TestDropRootClientSpans(t *testing.T) {
 	t.Run("keeps a server span that starts a trace", func(t *testing.T) {
 		recorder, tracer := newFilteredTracer()
 
-		_, span := tracer.Start(context.Background(), "POST /api/checkout", trace.WithSpanKind(trace.SpanKindServer))
+		_, span := tracer.Start(context.Background(), "POST /api/items", trace.WithSpanKind(trace.SpanKindServer))
 		span.End()
 
 		assert.Len(t, recorder.Ended(), 1)
@@ -23,7 +23,7 @@ func TestDropRootClientSpans(t *testing.T) {
 	t.Run("keeps a client span that has a parent", func(t *testing.T) {
 		recorder, tracer := newFilteredTracer()
 
-		ctx, parent := tracer.Start(context.Background(), "order.Place")
+		ctx, parent := tracer.Start(context.Background(), "item.Create")
 		_, child := tracer.Start(ctx, "query SELECT", trace.WithSpanKind(trace.SpanKindClient))
 		child.End()
 		parent.End()

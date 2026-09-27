@@ -15,15 +15,15 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/residwi/go-api-project-template/internal/platform/errs"
-	"github.com/residwi/go-api-project-template/internal/platform/tracing"
-	"github.com/residwi/go-api-project-template/internal/testutil"
+	"__MODULE__/internal/platform/errs"
+	"__MODULE__/internal/platform/tracing"
+	"__MODULE__/internal/testutil"
 )
 
 func TestRecord(t *testing.T) {
 	t.Run("leaves a successful span unset", func(t *testing.T) {
 		recorder, tracer := newRecordingTracer()
-		_, span := tracer.Start(context.Background(), "cart.Add")
+		_, span := tracer.Start(context.Background(), "item.Create")
 
 		tracing.Record(span, nil)
 		span.End()
@@ -35,9 +35,9 @@ func TestRecord(t *testing.T) {
 
 	t.Run("records a business error without failing the span", func(t *testing.T) {
 		recorder, tracer := newRecordingTracer()
-		_, span := tracer.Start(context.Background(), "cart.Add")
+		_, span := tracer.Start(context.Background(), "item.Create")
 
-		tracing.Record(span, fmt.Errorf("%w: cart is empty", errs.ErrConflict))
+		tracing.Record(span, fmt.Errorf("%w: item already exists", errs.ErrConflict))
 		span.End()
 
 		got := onlySpan(t, recorder)
@@ -48,7 +48,7 @@ func TestRecord(t *testing.T) {
 
 	t.Run("fails the span for an unrecognised error", func(t *testing.T) {
 		recorder, tracer := newRecordingTracer()
-		_, span := tracer.Start(context.Background(), "cart.Add")
+		_, span := tracer.Start(context.Background(), "item.Create")
 
 		tracing.Record(span, errors.New("connection refused"))
 		span.End()

@@ -7,7 +7,7 @@ import (
 )
 
 func TestRewriteContent_ReplacesModuleAndName(t *testing.T) {
-	in := []byte("import \"" + TemplateModule + "/internal/core\"\n// __PROJECT_NAME__\n")
+	in := []byte("import \"" + ModulePlaceholder + "/internal/core\"\n// __PROJECT_NAME__\n")
 	got := rewriteContent(in, Options{Module: "github.com/me/myapp", ProjectName: "myapp"})
 	want := "import \"github.com/me/myapp/internal/core\"\n// myapp\n"
 	assert.Equal(t, want, string(got))

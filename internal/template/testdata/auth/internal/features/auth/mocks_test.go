@@ -8,9 +8,9 @@ import (
 	"context"
 	"time"
 
+	"__MODULE__/internal/features/auth/domain"
+	"__MODULE__/internal/features/user"
 	"github.com/google/uuid"
-	"github.com/residwi/go-api-project-template/internal/features/auth/domain"
-	"github.com/residwi/go-api-project-template/internal/features/user"
 	mock "github.com/stretchr/testify/mock"
 )
 

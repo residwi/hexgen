@@ -13,8 +13,8 @@ import (
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/residwi/go-api-project-template/internal/platform/identity"
-	"github.com/residwi/go-api-project-template/internal/platform/web/response"
+	"__MODULE__/internal/platform/identity"
+	"__MODULE__/internal/platform/web/response"
 )
 
 const ipv6RateLimitPrefixBits = 64

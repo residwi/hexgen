@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/residwi/go-api-project-template/internal/platform/errs"
-	"github.com/residwi/go-api-project-template/internal/platform/paging"
+	"__MODULE__/internal/platform/errs"
+	"__MODULE__/internal/platform/paging"
 )
 
 const keysetCursorArgs = 2

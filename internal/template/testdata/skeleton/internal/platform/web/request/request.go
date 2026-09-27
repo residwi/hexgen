@@ -10,9 +10,9 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 
-	"github.com/residwi/go-api-project-template/internal/platform/errs"
-	"github.com/residwi/go-api-project-template/internal/platform/identity"
-	"github.com/residwi/go-api-project-template/internal/platform/web/response"
+	"__MODULE__/internal/platform/errs"
+	"__MODULE__/internal/platform/identity"
+	"__MODULE__/internal/platform/web/response"
 )
 
 //nolint:gochecknoglobals // one shared validator: go-playground caches struct metadata per type, so a per-call instance would re-reflect every request

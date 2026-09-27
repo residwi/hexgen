@@ -12,7 +12,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/singleflight"
 
-	"github.com/residwi/go-api-project-template/internal/platform/errs"
+	"__MODULE__/internal/platform/errs"
 )
 
 type ReadThrough struct {

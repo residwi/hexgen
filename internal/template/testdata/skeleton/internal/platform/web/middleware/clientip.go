@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/residwi/go-api-project-template/internal/platform/logger"
+	"__MODULE__/internal/platform/logger"
 )
 
 type clientIPKey struct{}

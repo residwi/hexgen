@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/residwi/go-api-project-template/internal/features/auth/domain"
-	"github.com/residwi/go-api-project-template/internal/features/user"
+	"__MODULE__/internal/features/auth/domain"
+	"__MODULE__/internal/features/user"
 )
 
 type UserDirectory interface {

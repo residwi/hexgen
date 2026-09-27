@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"runtime/debug"
 
-	"github.com/residwi/go-api-project-template/internal/platform/web/response"
+	"__MODULE__/internal/platform/web/response"
 )
 
 func Recovery(log *slog.Logger) func(http.Handler) http.Handler {

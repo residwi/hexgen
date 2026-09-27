@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/residwi/go-api-project-template/internal/features/user/domain"
+	"__MODULE__/internal/features/user/domain"
 )
 
 type adminUserResponse struct {

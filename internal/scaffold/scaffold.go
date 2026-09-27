@@ -10,9 +10,9 @@ import (
 	"text/template"
 )
 
-// TemplateModule is the placeholder module path the embedded Go files import.
-// Every occurrence is rewritten to Options.Module during generation.
-const TemplateModule = "github.com/residwi/go-api-project-template"
+// ModulePlaceholder is the module path the embedded Go files import. Every
+// occurrence is rewritten to Options.Module during generation.
+const ModulePlaceholder = "__MODULE__"
 
 // Options configures a generation run. It is also the data context for .tmpl
 // files.

@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/residwi/go-api-project-template/internal/platform/identity"
-	"github.com/residwi/go-api-project-template/internal/platform/logger"
-	"github.com/residwi/go-api-project-template/internal/platform/web/response"
+	"__MODULE__/internal/platform/identity"
+	"__MODULE__/internal/platform/logger"
+	"__MODULE__/internal/platform/web/response"
 )
 
 type Authenticator interface {

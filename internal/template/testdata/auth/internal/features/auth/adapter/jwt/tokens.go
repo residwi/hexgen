@@ -8,7 +8,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 
-	"github.com/residwi/go-api-project-template/internal/features/auth/domain"
+	"__MODULE__/internal/features/auth/domain"
 )
 
 type Tokens struct {

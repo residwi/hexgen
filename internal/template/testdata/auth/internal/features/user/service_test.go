@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/residwi/go-api-project-template/internal/features/user/domain"
-	"github.com/residwi/go-api-project-template/internal/platform/errs"
+	"__MODULE__/internal/features/user/domain"
+	"__MODULE__/internal/platform/errs"
 )
 
 func TestService_GetByEmail(t *testing.T) {

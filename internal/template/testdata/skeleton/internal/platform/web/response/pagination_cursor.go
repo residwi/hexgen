@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/residwi/go-api-project-template/internal/platform/paging"
+	"__MODULE__/internal/platform/paging"
 )
 
 const cursorTimeFormat = "2006-01-02T15:04:05.999999Z07:00"

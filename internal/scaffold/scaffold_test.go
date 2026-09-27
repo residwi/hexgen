@@ -12,7 +12,7 @@ import (
 func TestGenerate_RendersTemplatesAndRewritesTokens(t *testing.T) {
 	skeleton := fstest.MapFS{
 		"go.mod.tmpl":               {Data: []byte("module {{.Module}}\n")},
-		"internal/server/server.go": {Data: []byte("package server // " + TemplateModule + "/internal/app\n")},
+		"internal/server/server.go": {Data: []byte("package server // " + ModulePlaceholder + "/internal/app\n")},
 		"README.md":                 {Data: []byte("# __PROJECT_NAME__")},
 	}
 

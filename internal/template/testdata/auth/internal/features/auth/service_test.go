@@ -15,11 +15,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/residwi/go-api-project-template/internal/features/auth/adapter/jwt"
-	"github.com/residwi/go-api-project-template/internal/features/auth/domain"
-	"github.com/residwi/go-api-project-template/internal/features/user"
-	"github.com/residwi/go-api-project-template/internal/platform/errs"
-	"github.com/residwi/go-api-project-template/internal/platform/identity"
+	"__MODULE__/internal/features/auth/adapter/jwt"
+	"__MODULE__/internal/features/auth/domain"
+	"__MODULE__/internal/features/user"
+	"__MODULE__/internal/platform/errs"
+	"__MODULE__/internal/platform/identity"
 )
 
 func TestService_Login(t *testing.T) {
@@ -38,7 +38,7 @@ func TestService_Login(t *testing.T) {
 			PasswordHash: string(hash),
 			FirstName:    "John",
 			LastName:     "Doe",
-			Role:         "customer",
+			Role:         "user",
 			Active:       true,
 			TokenVersion: 1,
 		}
@@ -56,7 +56,7 @@ func TestService_Login(t *testing.T) {
 			Email:        "test@example.com",
 			FirstName:    "John",
 			LastName:     "Doe",
-			Role:         "customer",
+			Role:         "user",
 			Active:       true,
 			TokenVersion: 1,
 		}, resp.User)
@@ -153,7 +153,7 @@ func TestService_Register(t *testing.T) {
 			Email:     "test@example.com",
 			FirstName: "John",
 			LastName:  "Doe",
-			Role:      "customer",
+			Role:      "user",
 			Active:    true,
 		}
 
@@ -219,7 +219,7 @@ func TestService_Refresh(t *testing.T) {
 			Email:        "test@example.com",
 			FirstName:    "John",
 			LastName:     "Doe",
-			Role:         "customer",
+			Role:         "user",
 			Active:       true,
 			TokenVersion: 1,
 		}
@@ -259,7 +259,7 @@ func TestService_Refresh(t *testing.T) {
 		svc := newTestService(users)
 
 		pair, err := svc.BuildTokenPair(user.Profile{
-			ID: uuid.New(), Email: "test@example.com", Role: "customer", TokenVersion: 1,
+			ID: uuid.New(), Email: "test@example.com", Role: "user", TokenVersion: 1,
 		})
 		require.NoError(t, err)
 
@@ -277,7 +277,7 @@ func TestService_Refresh(t *testing.T) {
 
 		userID := uuid.New()
 		pair, err := svc.BuildTokenPair(user.Profile{
-			ID: userID, Email: "test@example.com", Role: "customer", TokenVersion: 1,
+			ID: userID, Email: "test@example.com", Role: "user", TokenVersion: 1,
 		})
 		require.NoError(t, err)
 
@@ -352,7 +352,7 @@ func TestService_BuildTokenPair(t *testing.T) {
 	user := user.Profile{
 		ID:           userID,
 		Email:        "user@example.com",
-		Role:         "customer",
+		Role:         "user",
 		TokenVersion: 1,
 	}
 
@@ -371,7 +371,7 @@ func TestService_BuildTokenPair(t *testing.T) {
 		assert.Equal(t, cfg.AccessTokenTTL, pair.ExpiresIn)
 		assert.Equal(t, user, pair.User)
 
-		want := domain.Claims{UserID: userID, Role: "customer", TokenVersion: 1}
+		want := domain.Claims{UserID: userID, Role: "user", TokenVersion: 1}
 
 		accessClaims, err := tokens.Verify(pair.AccessToken, domain.KindAccess)
 		require.NoError(t, err)

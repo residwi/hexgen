@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/residwi/go-api-project-template/internal/platform/logger"
+	"__MODULE__/internal/platform/logger"
 )
 
 func TestLogging_CallsNextHandler(t *testing.T) {

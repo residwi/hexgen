@@ -130,7 +130,7 @@ func assertMissing(t *testing.T, root, rel string) {
 
 // assertNoLeftoverNames fails for any generated file that still names the
 // template's domain, the template module, a dropped binary, or an unreplaced
-// project-name token.
+// placeholder.
 func assertNoLeftoverNames(t *testing.T, root string) {
 	t.Helper()
 	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
@@ -149,6 +149,7 @@ func assertNoLeftoverNames(t *testing.T, root string) {
 		assert.Falsef(t, strings.Contains(strings.ToLower(s), "ecommerce"), "%s mentions ecommerce", rel)
 		assert.Falsef(t, strings.Contains(s, "go-api-project-template"), "%s mentions go-api-project-template", rel)
 		assert.Falsef(t, strings.Contains(s, "__PROJECT_NAME__"), "%s has an unreplaced __PROJECT_NAME__", rel)
+		assert.Falsef(t, strings.Contains(s, scaffold.ModulePlaceholder), "%s has an unreplaced module placeholder", rel)
 		for _, dropped := range []string{"mockgateway", "cmd/worker"} {
 			assert.Falsef(t, strings.Contains(s, dropped), "%s mentions dropped %s", rel, dropped)
 		}

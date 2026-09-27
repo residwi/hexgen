@@ -4,9 +4,9 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/residwi/go-api-project-template/internal/features/auth"
-	"github.com/residwi/go-api-project-template/internal/platform/web/request"
-	"github.com/residwi/go-api-project-template/internal/platform/web/response"
+	"__MODULE__/internal/features/auth"
+	"__MODULE__/internal/platform/web/request"
+	"__MODULE__/internal/platform/web/response"
 )
 
 type AuthManager interface {

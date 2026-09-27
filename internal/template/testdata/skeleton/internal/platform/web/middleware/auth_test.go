@@ -14,9 +14,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/residwi/go-api-project-template/internal/platform/errs"
-	"github.com/residwi/go-api-project-template/internal/platform/identity"
-	"github.com/residwi/go-api-project-template/internal/platform/logger"
+	"__MODULE__/internal/platform/errs"
+	"__MODULE__/internal/platform/identity"
+	"__MODULE__/internal/platform/logger"
 )
 
 func TestAuth(t *testing.T) {

@@ -15,11 +15,11 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/residwi/go-api-project-template/internal/features/auth/domain"
-	"github.com/residwi/go-api-project-template/internal/features/user"
-	"github.com/residwi/go-api-project-template/internal/platform/errs"
-	"github.com/residwi/go-api-project-template/internal/platform/identity"
-	"github.com/residwi/go-api-project-template/internal/platform/tracing"
+	"__MODULE__/internal/features/auth/domain"
+	"__MODULE__/internal/features/user"
+	"__MODULE__/internal/platform/errs"
+	"__MODULE__/internal/platform/identity"
+	"__MODULE__/internal/platform/tracing"
 )
 
 type Service struct {
@@ -42,7 +42,7 @@ func New(cfg Config, users UserDirectory, tokens Tokens, logger *slog.Logger) *S
 		bcryptCost: cfg.BcryptCost,
 		accessTTL:  cfg.AccessTokenTTL,
 		refreshTTL: cfg.RefreshTokenTTL,
-		tracer:     otel.Tracer("github.com/residwi/go-api-project-template/internal/features/auth"),
+		tracer:     otel.Tracer("__MODULE__/internal/features/auth"),
 	}
 	s.dummyHash, _ = bcrypt.GenerateFromPassword([]byte(dummyPassword), cfg.BcryptCost)
 	keyMAC := hmac.New(sha256.New, []byte(cfg.Secret))

@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/residwi/go-api-project-template/internal/platform/errs"
+	"__MODULE__/internal/platform/errs"
 )
 
 func TestKind(t *testing.T) {
@@ -22,7 +22,7 @@ func TestKind(t *testing.T) {
 	t.Run("matches a wrapped sentinel", func(t *testing.T) {
 		t.Parallel()
 
-		assert.Equal(t, errs.ErrConflict, errs.Kind(fmt.Errorf("%w: cart is empty", errs.ErrConflict)))
+		assert.Equal(t, errs.ErrConflict, errs.Kind(fmt.Errorf("%w: item already exists", errs.ErrConflict)))
 	})
 
 	t.Run("returns nil for an unrelated error", func(t *testing.T) {

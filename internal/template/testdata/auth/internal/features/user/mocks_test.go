@@ -7,8 +7,8 @@ package user
 import (
 	"context"
 
+	"__MODULE__/internal/features/user/domain"
 	"github.com/google/uuid"
-	"github.com/residwi/go-api-project-template/internal/features/user/domain"
 	mock "github.com/stretchr/testify/mock"
 )
 

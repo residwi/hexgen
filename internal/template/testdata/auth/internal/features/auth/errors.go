@@ -3,7 +3,7 @@ package auth
 import (
 	"fmt"
 
-	"github.com/residwi/go-api-project-template/internal/platform/errs"
+	"__MODULE__/internal/platform/errs"
 )
 
 var (

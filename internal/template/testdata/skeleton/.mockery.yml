@@ -9,18 +9,18 @@ pkgname: "{{.SrcPackageName}}"
 filename: "mocks_test.go"
 
 packages:
-  github.com/residwi/go-api-project-template/internal:
+  __MODULE__/internal:
     config:
       recursive: true
-  github.com/residwi/go-api-project-template/internal/platform/cache:
+  __MODULE__/internal/platform/cache:
     config:
       all: false
-  github.com/residwi/go-api-project-template/internal/platform/database:
+  __MODULE__/internal/platform/database:
     config:
       all: false
-  github.com/residwi/go-api-project-template/internal/platform/storage:
+  __MODULE__/internal/platform/storage:
     config:
       all: false
-  github.com/residwi/go-api-project-template/internal/platform/web/request:
+  __MODULE__/internal/platform/web/request:
     config:
       all: false

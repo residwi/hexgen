@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 {{end}}
-	"github.com/residwi/go-api-project-template/internal/config"
+	"__MODULE__/internal/config"
 {{- if .Auth}}
-	"github.com/residwi/go-api-project-template/internal/features/auth"
+	"__MODULE__/internal/features/auth"
 {{- end}}
-	"github.com/residwi/go-api-project-template/internal/platform/database"
+	"__MODULE__/internal/platform/database"
 )
 
 // Config holds each feature module's own env config.

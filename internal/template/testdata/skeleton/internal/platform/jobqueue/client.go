@@ -7,7 +7,7 @@ import (
 	"github.com/riverqueue/river/rivertype"
 	"github.com/riverqueue/rivercontrib/otelriver"
 
-	"github.com/residwi/go-api-project-template/internal/platform/database"
+	"__MODULE__/internal/platform/database"
 )
 
 func NewInsertClient(db database.DB) (*river.Client[pgx.Tx], error) {

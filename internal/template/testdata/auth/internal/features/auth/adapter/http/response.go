@@ -3,7 +3,7 @@ package http
 import (
 	"github.com/google/uuid"
 
-	"github.com/residwi/go-api-project-template/internal/features/auth"
+	"__MODULE__/internal/features/auth"
 )
 
 type authUserResponse struct {

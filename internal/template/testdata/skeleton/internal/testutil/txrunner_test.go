@@ -1,8 +1,8 @@
 package testutil_test
 
 import (
-	"github.com/residwi/go-api-project-template/internal/platform/database"
-	"github.com/residwi/go-api-project-template/internal/testutil"
+	"__MODULE__/internal/platform/database"
+	"__MODULE__/internal/testutil"
 )
 
 // Here rather than in txrunner.go because package testutil cannot import

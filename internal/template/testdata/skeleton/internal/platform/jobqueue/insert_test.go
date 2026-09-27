@@ -14,8 +14,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.opentelemetry.io/otel/trace/noop"
 
-	"github.com/residwi/go-api-project-template/internal/platform/database"
-	"github.com/residwi/go-api-project-template/internal/testutil"
+	"__MODULE__/internal/platform/database"
+	"__MODULE__/internal/testutil"
 )
 
 var testPool *pgxpool.Pool

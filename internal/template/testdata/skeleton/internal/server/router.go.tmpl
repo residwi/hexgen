@@ -8,14 +8,14 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
-	"github.com/residwi/go-api-project-template/internal/app"
-	"github.com/residwi/go-api-project-template/internal/config"
+	"__MODULE__/internal/app"
+	"__MODULE__/internal/config"
 {{- if .Auth}}
-	authhttp "github.com/residwi/go-api-project-template/internal/features/auth/adapter/http"
-	userhttp "github.com/residwi/go-api-project-template/internal/features/user/adapter/http"
+	authhttp "__MODULE__/internal/features/auth/adapter/http"
+	userhttp "__MODULE__/internal/features/user/adapter/http"
 {{- end}}
-	"github.com/residwi/go-api-project-template/internal/platform/web"
-	"github.com/residwi/go-api-project-template/internal/platform/web/middleware"
+	"__MODULE__/internal/platform/web"
+	"__MODULE__/internal/platform/web/middleware"
 )
 
 func NewRouter(

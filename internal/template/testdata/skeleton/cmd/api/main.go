@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/residwi/go-api-project-template/internal/server"
+	"__MODULE__/internal/server"
 )
 
 func main() {

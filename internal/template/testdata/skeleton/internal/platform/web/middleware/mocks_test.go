@@ -7,7 +7,7 @@ package middleware
 import (
 	"context"
 
-	"github.com/residwi/go-api-project-template/internal/platform/identity"
+	"__MODULE__/internal/platform/identity"
 	mock "github.com/stretchr/testify/mock"
 )
 

@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/residwi/go-api-project-template/internal/platform/identity"
+	"__MODULE__/internal/platform/identity"
 )
 
 func TestRateLimit(t *testing.T) {

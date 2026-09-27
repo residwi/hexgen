@@ -8,10 +8,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/residwi/go-api-project-template/internal/features/user"
-	"github.com/residwi/go-api-project-template/internal/features/user/domain"
-	"github.com/residwi/go-api-project-template/internal/platform/database"
-	"github.com/residwi/go-api-project-template/internal/platform/errs"
+	"__MODULE__/internal/features/user"
+	"__MODULE__/internal/features/user/domain"
+	"__MODULE__/internal/platform/database"
+	"__MODULE__/internal/platform/errs"
 )
 
 var _ user.Repository = (*Repository)(nil)
