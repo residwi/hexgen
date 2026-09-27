@@ -37,6 +37,20 @@ func TestGenerate_OmitsTemplateThatRendersToWhitespace(t *testing.T) {
 	assert.NotContains(t, out, "gated.go.tmpl")
 }
 
+func TestGenerate_GatesOnAuth(t *testing.T) {
+	skeleton := fstest.MapFS{
+		"router.go.tmpl": {Data: []byte("package server\n{{if .Auth}}// auth routes\n{{end}}")},
+	}
+
+	off, err := Generate(Options{Module: "m", ProjectName: "p"}, skeleton)
+	require.NoError(t, err)
+	assert.NotContains(t, string(off["router.go"].Data), "auth routes")
+
+	on, err := Generate(Options{Module: "m", ProjectName: "p", Auth: true}, skeleton)
+	require.NoError(t, err)
+	assert.Contains(t, string(on["router.go"].Data), "auth routes")
+}
+
 func TestGenerate_LaterLayerWins(t *testing.T) {
 	skeleton := fstest.MapFS{
 		"shared.txt": {Data: []byte("skeleton")},

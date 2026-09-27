@@ -14,6 +14,7 @@ type newOptions struct {
 	Force  bool
 	Git    bool
 	Check  bool
+	Auth   bool
 }
 
 func parseNewArgs(args []string) (newOptions, error) {
@@ -24,6 +25,7 @@ func parseNewArgs(args []string) (newOptions, error) {
 	fs.BoolVar(&o.Force, "force", false, "write into a non-empty directory")
 	fs.BoolVar(&o.Git, "git", false, "run 'git init' in the generated project")
 	fs.BoolVar(&o.Check, "check", false, "run 'go build ./...' in the output after generating")
+	fs.BoolVar(&o.Auth, "auth", false, "include the auth and user features (register/login/refresh, /users/me, admin user routes)")
 
 	// Extract the leading positional name argument before flag parsing, so that
 	// flags appearing after the name are handled correctly by flag.FlagSet.
@@ -66,8 +68,11 @@ func nextSteps(o newOptions) string {
 	fmt.Fprintf(&b, "  cd %s\n", dir)
 	b.WriteString("  make setup            # install dev tooling (mockery, goose, air, golangci-lint)\n")
 	b.WriteString("  cp .env.example .env  # then edit DATABASE_URL etc.\n")
+	b.WriteString("  make docker-up        # start postgres and redis\n")
 	b.WriteString("  make migrate-up\n")
-	b.WriteString("  make seed             # seeds admin user: admin@example.com / admin123  (change this!)\n")
+	if o.Auth {
+		b.WriteString("  make seed             # seeds admin user: admin@example.com / admin123456  (change this!)\n")
+	}
 	b.WriteString("  make run\n")
 	b.WriteString("\n")
 	b.WriteString("Run tests:  make test    (integration tests require Docker)\n")

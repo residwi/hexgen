@@ -19,6 +19,7 @@ const TemplateModule = "github.com/residwi/go-api-project-template"
 type Options struct {
 	Module      string // new module path, e.g. github.com/me/myapp
 	ProjectName string // e.g. myapp
+	Auth        bool   // include the auth and user features
 }
 
 // File is a generated file's content and permission mode.

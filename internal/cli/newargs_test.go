@@ -37,10 +37,27 @@ func TestUsageNamesHexgen(t *testing.T) {
 	assert.ErrorContains(t, validateNewOptions(newOptions{Module: "github.com/me/x"}), "usage: hexgen new")
 }
 
+func TestParseNewArgs_Auth(t *testing.T) {
+	o, err := parseNewArgs([]string{"myapp", "--module", "github.com/me/myapp", "--auth"})
+	require.NoError(t, err)
+	assert.True(t, o.Auth)
+
+	def, err := parseNewArgs([]string{"myapp", "--module", "github.com/me/myapp"})
+	require.NoError(t, err)
+	assert.False(t, def.Auth)
+}
+
 func TestNextSteps(t *testing.T) {
 	got := nextSteps(newOptions{Name: "myapp", Output: "./myapp"})
-	for _, want := range []string{"cd ./myapp", "make migrate-up", "make seed", "admin@example.com / admin123", "make test"} {
+	for _, want := range []string{"cd ./myapp", "make docker-up", "make migrate-up", "make run", "make test"} {
 		assert.Contains(t, got, want)
 	}
 	assert.NotContains(t, got, "go mod tidy", "hexgen new runs go mod tidy itself")
+	assert.NotContains(t, got, "make seed", "platform-only projects have no seed data")
+}
+
+func TestNextSteps_Auth(t *testing.T) {
+	got := nextSteps(newOptions{Name: "myapp", Output: "./myapp", Auth: true})
+	assert.Contains(t, got, "make seed")
+	assert.Contains(t, got, "admin@example.com / admin123456")
 }

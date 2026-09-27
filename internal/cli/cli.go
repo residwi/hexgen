@@ -4,6 +4,7 @@ package cli
 import (
 	"bufio"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 
@@ -17,11 +18,12 @@ const version = "0.1.0-dev"
 const usage = `hexgen - bootstrap a platform-only Go API project
 
 Usage:
-  hexgen new <name> --module <path> [--output dir] [--force] [--git] [--check]
+  hexgen new <name> --module <path> [--auth] [--output dir] [--force] [--git] [--check]
   hexgen version
 
 Flags for "new":
   --module   Go module path (required), e.g. github.com/me/myapp
+  --auth     include the auth and user features (register/login/refresh, /users/me, admin user routes)
   --output   output directory (default ./<name>)
   --force    write into a non-empty directory
   --git      run 'git init' in the generated project
@@ -84,10 +86,15 @@ func runNew(args []string) int {
 		o.Output = "./" + o.Name
 	}
 
+	layers := []fs.FS{template.Skeleton()}
+	if o.Auth {
+		layers = append(layers, template.Auth())
+	}
 	files, err := scaffold.Generate(scaffold.Options{
 		Module:      o.Module,
 		ProjectName: o.Name,
-	}, template.Skeleton())
+		Auth:        o.Auth,
+	}, layers...)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
