@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	postgresContainerName = "go-api-test-postgres"
-	redisContainerName    = "go-api-test-redis"
+	postgresContainerName = "__PROJECT_NAME__-test-postgres"
+	redisContainerName    = "__PROJECT_NAME__-test-redis"
 
 	containerReadyTimeout = 90 * time.Second
 
