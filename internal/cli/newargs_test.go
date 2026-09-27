@@ -8,18 +8,19 @@ import (
 )
 
 func TestParseNewArgs(t *testing.T) {
-	o, err := parseNewArgs([]string{"myapp", "--module", "github.com/me/myapp", "--ref", "v1.0.0", "--force"})
+	o, err := parseNewArgs([]string{"myapp", "--module", "github.com/me/myapp", "--force"})
 	require.NoError(t, err)
 	assert.Equal(t, "myapp", o.Name)
 	assert.Equal(t, "github.com/me/myapp", o.Module)
-	assert.Equal(t, "v1.0.0", o.Ref)
 	assert.True(t, o.Force)
 }
 
-func TestParseNewArgs_DefaultRef(t *testing.T) {
-	o, err := parseNewArgs([]string{"myapp", "--module", "github.com/me/myapp"})
-	require.NoError(t, err)
-	assert.Equal(t, "main", o.Ref)
+func TestRun_RejectsRemovedFlags(t *testing.T) {
+	for _, flag := range [][]string{{"--ref", "main"}, {"--worker"}} {
+		// --output keeps a regression (flag accepted, project generated) out of the repo.
+		args := append([]string{"new", "myapp", "--module", "github.com/me/myapp", "--output", t.TempDir()}, flag...)
+		assert.Equalf(t, 2, Run(args), "%v should be an unknown flag", flag)
+	}
 }
 
 func TestValidateNewOptions(t *testing.T) {
@@ -41,19 +42,5 @@ func TestNextSteps(t *testing.T) {
 	for _, want := range []string{"cd ./myapp", "make migrate-up", "make seed", "admin@example.com / admin123", "make test"} {
 		assert.Contains(t, got, want)
 	}
-}
-
-func TestParseNewArgs_Worker(t *testing.T) {
-	o, err := parseNewArgs([]string{"myapp", "--module", "github.com/me/myapp", "--worker"})
-	require.NoError(t, err)
-	assert.True(t, o.Worker)
-
-	def, err := parseNewArgs([]string{"myapp", "--module", "github.com/me/myapp"})
-	require.NoError(t, err)
-	assert.False(t, def.Worker)
-}
-
-func TestNextSteps_Worker(t *testing.T) {
-	assert.Contains(t, nextSteps(newOptions{Name: "myapp", Output: "./myapp", Worker: true}), "make run-worker")
-	assert.NotContains(t, nextSteps(newOptions{Name: "myapp", Output: "./myapp"}), "make run-worker")
+	assert.NotContains(t, got, "go mod tidy", "hexgen new runs go mod tidy itself")
 }

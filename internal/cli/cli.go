@@ -14,20 +14,18 @@ import (
 
 const version = "0.1.0-dev"
 
-const usage = `hexgen - bootstrap a Go API project from go-api-project-template
+const usage = `hexgen - bootstrap a platform-only Go API project
 
 Usage:
-  hexgen new <name> --module <path> [--ref main] [--output dir] [--force] [--git] [--check]
+  hexgen new <name> --module <path> [--output dir] [--force] [--git] [--check]
   hexgen version
 
 Flags for "new":
   --module   Go module path (required), e.g. github.com/me/myapp
-  --ref      template ref to fetch (default "main")
   --output   output directory (default ./<name>)
   --force    write into a non-empty directory
   --git      run 'git init' in the generated project
-  --check    run 'go build ./...' in the output after generating
-  --worker   include a background worker (cmd/worker + jobs runner + worker config/tooling)`
+  --check    run 'go build ./...' in the output after generating`
 
 // Run dispatches a hexgen invocation and returns a process exit code.
 func Run(args []string) int {
@@ -100,6 +98,10 @@ func runNew(args []string) int {
 		return 1
 	}
 
+	// Drops template dependencies the generated project no longer imports.
+	if err := runCmd(o.Output, "go", "mod", "tidy"); err != nil {
+		fmt.Fprintln(os.Stderr, "warning: 'go mod tidy' failed in generated project:", err)
+	}
 	if o.Git {
 		if err := runCmd(o.Output, "git", "init"); err != nil {
 			fmt.Fprintln(os.Stderr, "warning: git init failed:", err)
