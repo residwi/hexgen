@@ -1,6 +1,6 @@
-# Makefile for go-project-generator (the `gen` CLI).
+# Makefile for go-project-generator (the `hexgen` CLI).
 
-BINARY := gen
+BINARY := hexgen
 BIN_DIR := bin
 
 .PHONY: help
@@ -8,17 +8,17 @@ help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
 .PHONY: build
-build: ## Build the gen binary into bin/
+build: ## Build the hexgen binary into bin/
 	@echo "Building $(BINARY)..."
-	go build -o $(BIN_DIR)/$(BINARY) ./cmd/gen
+	go build -o $(BIN_DIR)/$(BINARY) ./cmd/hexgen
 
 .PHONY: install
-install: ## Install gen into $(go env GOPATH)/bin
-	go install ./cmd/gen
+install: ## Install hexgen into $(go env GOPATH)/bin
+	go install ./cmd/hexgen
 
 .PHONY: run
-run: ## Run gen (pass args via ARGS='new myapp --module github.com/me/myapp')
-	go run ./cmd/gen $(ARGS)
+run: ## Run hexgen (pass args via ARGS='new myapp --module github.com/me/myapp')
+	go run ./cmd/hexgen $(ARGS)
 
 .PHONY: test
 test: ## Run all tests including the network e2e (-race)

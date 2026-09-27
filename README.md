@@ -1,4 +1,4 @@
-# go-project-generator (`gen`)
+# go-project-generator (`hexgen`)
 
 A single-binary CLI that bootstraps a fresh Go API project from
 [go-api-project-template](https://github.com/residwi/go-api-project-template) —
@@ -20,21 +20,21 @@ module path, and writes a ready-to-run project.
 ## Install
 
 ```bash
-go install github.com/residwi/go-project-generator/cmd/gen@latest
+go install github.com/residwi/go-project-generator/cmd/hexgen@latest
 ```
 
-Or build from source with `make build`, which outputs `bin/gen`.
+Or build from source with `make build`, which outputs `bin/hexgen`.
 
 ## Usage
 
 ```bash
-gen new <name> --module <path> [flags]
-gen version
+hexgen new <name> --module <path> [flags]
+hexgen version
 
-gen new myapp --module github.com/me/myapp
+hexgen new myapp --module github.com/me/myapp
 ```
 
-Run `gen new` with no name or module in a terminal to be prompted for them.
+Run `hexgen new` with no name or module in a terminal to be prompted for them.
 
 ### Flags for `new`
 
@@ -66,6 +66,6 @@ make test          # all tests, including the network e2e (-race)
 make test-short    # unit tests only (no network)
 make e2e           # end-to-end: fetch template, generate, build both variants
 make lint          # golangci-lint (standard linter set)
-make build         # build bin/gen
+make build         # build bin/hexgen
 make help          # list all targets
 ```

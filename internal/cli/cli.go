@@ -1,4 +1,4 @@
-// Package cli implements the gen command-line interface.
+// Package cli implements the hexgen command-line interface.
 package cli
 
 import (
@@ -19,11 +19,11 @@ const version = "0.1.0-dev"
 
 const defaultRepo = "residwi/go-api-project-template"
 
-const usage = `gen - bootstrap a Go API project from go-api-project-template
+const usage = `hexgen - bootstrap a Go API project from go-api-project-template
 
 Usage:
-  gen new <name> --module <path> [--ref main] [--output dir] [--force] [--git] [--check]
-  gen version
+  hexgen new <name> --module <path> [--ref main] [--output dir] [--force] [--git] [--check]
+  hexgen version
 
 Flags for "new":
   --module   Go module path (required), e.g. github.com/me/myapp
@@ -34,7 +34,7 @@ Flags for "new":
   --check    run 'go build ./...' in the output after generating
   --worker   include a background worker (cmd/worker + jobs runner + worker config/tooling)`
 
-// Run dispatches a gen invocation and returns a process exit code.
+// Run dispatches a hexgen invocation and returns a process exit code.
 func Run(args []string) int {
 	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr, usage)

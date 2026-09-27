@@ -31,6 +31,11 @@ func TestValidateNewOptions(t *testing.T) {
 	assert.Error(t, validateNewOptions(newOptions{Name: "a/b", Module: "github.com/me/x"}))
 }
 
+func TestUsageNamesHexgen(t *testing.T) {
+	assert.Contains(t, usage, "hexgen new <name> --module <path>")
+	assert.ErrorContains(t, validateNewOptions(newOptions{Module: "github.com/me/x"}), "usage: hexgen new")
+}
+
 func TestNextSteps(t *testing.T) {
 	got := nextSteps(newOptions{Name: "myapp", Output: "./myapp"})
 	for _, want := range []string{"cd ./myapp", "make migrate-up", "make seed", "admin@example.com / admin123", "make test"} {

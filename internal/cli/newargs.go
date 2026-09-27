@@ -45,7 +45,7 @@ func parseNewArgs(args []string) (newOptions, error) {
 
 func validateNewOptions(o newOptions) error {
 	if o.Name == "" {
-		return errors.New("project name is required (usage: gen new <name> --module <path>)")
+		return errors.New("project name is required (usage: hexgen new <name> --module <path>)")
 	}
 	if strings.ContainsAny(o.Name, `/\`) || o.Name == "." || o.Name == ".." || strings.HasPrefix(o.Name, "-") {
 		return errors.New(`project name must be a single path segment (no '/', '\', '.', '..', or leading '-')`)
