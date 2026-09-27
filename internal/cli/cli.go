@@ -3,21 +3,16 @@ package cli
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
-	"time"
 
-	"github.com/residwi/go-project-generator/internal/assets"
-	"github.com/residwi/go-project-generator/internal/fetch"
 	"github.com/residwi/go-project-generator/internal/prompt"
 	"github.com/residwi/go-project-generator/internal/scaffold"
+	"github.com/residwi/go-project-generator/internal/template"
 )
 
 const version = "0.1.0-dev"
-
-const defaultRepo = "residwi/go-api-project-template"
 
 const usage = `hexgen - bootstrap a Go API project from go-api-project-template
 
@@ -91,22 +86,10 @@ func runNew(args []string) int {
 		o.Output = "./" + o.Name
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-
-	src := &fetch.GitHub{Repo: defaultRepo}
-	fsys, cleanup, err := src.Fetch(ctx, o.Ref)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		return 1
-	}
-	defer cleanup()
-
-	files, err := scaffold.Generate(fsys, scaffold.Options{
+	files, err := scaffold.Generate(scaffold.Options{
 		Module:      o.Module,
 		ProjectName: o.Name,
-		Worker:      o.Worker,
-	}, assets.Overrides())
+	}, template.Skeleton())
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1

@@ -1,4 +1,4 @@
-// Package scaffold transforms the fetched template tree into a skeleton project.
+// Package scaffold turns the embedded project tree into a generated project.
 package scaffold
 
 import (
@@ -10,16 +10,15 @@ import (
 	"text/template"
 )
 
-// TemplateModule is the Go module path used by the source template. Every
-// occurrence is rewritten to Options.Module during generation.
+// TemplateModule is the placeholder module path the embedded Go files import.
+// Every occurrence is rewritten to Options.Module during generation.
 const TemplateModule = "github.com/residwi/go-api-project-template"
 
-// Options configures a generation run. It is also the data context for override
-// templates, so override files may use `{{if .Worker}}` to gate worker-only content.
+// Options configures a generation run. It is also the data context for .tmpl
+// files.
 type Options struct {
 	Module      string // new module path, e.g. github.com/me/myapp
 	ProjectName string // e.g. myapp
-	Worker      bool   // include a background worker (cmd/worker + worker config/tooling)
 }
 
 // File is a generated file's content and permission mode.
@@ -28,18 +27,18 @@ type File struct {
 	Mode fs.FileMode
 }
 
-// Generate walks src applying keep/drop rules, overlays the override tree, then
-// rewrites the module path and project-name token across every resulting file.
-// Override files ending in ".tmpl" are rendered with text/template using opts as
-// the data context (and the ".tmpl" suffix stripped); an override that renders to
-// only whitespace is omitted, which lets a whole file be gated behind `{{if}}`.
-func Generate(src fs.FS, opts Options, overrides fs.FS) (map[string]File, error) {
+// Generate merges layers in order, so a later layer's file replaces an earlier
+// one at the same path, then rewrites the module path and project-name token
+// across every resulting file. Files ending in ".tmpl" are rendered with
+// text/template using opts as the data context (and the ".tmpl" suffix
+// stripped); a template that renders to only whitespace is omitted, which lets
+// a whole file be gated behind `{{if}}`.
+func Generate(opts Options, layers ...fs.FS) (map[string]File, error) {
 	out := map[string]File{}
-	if err := collect(src, out, opts, false); err != nil {
-		return nil, err
-	}
-	if err := collect(overrides, out, opts, true); err != nil {
-		return nil, err
+	for _, layer := range layers {
+		if err := collect(layer, out, opts); err != nil {
+			return nil, err
+		}
 	}
 	for p, f := range out {
 		data := rewriteContent(f.Data, opts)
@@ -56,17 +55,12 @@ func Generate(src fs.FS, opts Options, overrides fs.FS) (map[string]File, error)
 	return out, nil
 }
 
-func collect(fsys fs.FS, out map[string]File, opts Options, override bool) error {
+func collect(fsys fs.FS, out map[string]File, opts Options) error {
 	return fs.WalkDir(fsys, ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() || p == "." {
-			return nil
-		}
-		// drop() applies only to source files; overrides are always included (this
-		// is how worker-only files like cmd/worker re-enter the carved tree).
-		if !override && drop(p) {
+		if d.IsDir() {
 			return nil
 		}
 		data, err := fs.ReadFile(fsys, p)
@@ -78,16 +72,15 @@ func collect(fsys fs.FS, out map[string]File, opts Options, override bool) error
 			return err
 		}
 		key := p
-		if override && strings.HasSuffix(p, ".tmpl") {
+		if name, ok := strings.CutSuffix(p, ".tmpl"); ok {
 			rendered, err := renderTemplate(p, data, opts)
 			if err != nil {
 				return err
 			}
 			if len(bytes.TrimSpace(rendered)) == 0 {
-				return nil // entirely gated out (e.g. a worker-only file without --worker)
+				return nil // entirely gated out by {{if}}
 			}
-			data = rendered
-			key = strings.TrimSuffix(p, ".tmpl")
+			data, key = rendered, name
 		}
 		out[key] = File{Data: data, Mode: normalizeMode(info.Mode())}
 		return nil

@@ -10,61 +10,34 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/residwi/go-project-generator/internal/assets"
-	"github.com/residwi/go-project-generator/internal/fetch"
 	"github.com/residwi/go-project-generator/internal/scaffold"
+	"github.com/residwi/go-project-generator/internal/template"
 )
 
-// TestEndToEnd fetches the real template, generates a project (default skeleton
-// and the --worker variant), and runs `go build ./...` + `gofmt -l` against each.
-// Requires network + Go toolchain. Skipped under -short.
+// TestEndToEnd generates a project from the embedded skeleton and runs
+// `go build ./...`, `go vet ./...` and `gofmt -l` against it. Requires the Go
+// toolchain and GOPROXY access for the generated project's dependencies.
+// Skipped under -short.
 func TestEndToEnd(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping network/build e2e test in -short mode")
+		t.Skip("skipping build e2e test in -short mode")
 	}
 
-	src := &fetch.GitHub{Repo: "residwi/go-api-project-template"}
-	fsys, cleanup, err := src.Fetch(t.Context(), "main")
-	require.NoError(t, err, "fetch")
-	defer cleanup()
-
-	t.Run("default skeleton", func(t *testing.T) {
-		files, err := scaffold.Generate(fsys, scaffold.Options{
+	t.Run("platform only", func(t *testing.T) {
+		files, err := scaffold.Generate(scaffold.Options{
 			Module:      "github.com/example/e2eapp",
 			ProjectName: "e2eapp",
-		}, assets.Overrides())
+		}, template.Skeleton())
 		require.NoError(t, err, "generate")
 
 		out := filepath.Join(t.TempDir(), "e2eapp")
 		require.NoError(t, scaffold.Write(out, files, false), "write")
 
-		assertExists(t, out, "internal/features/auth/service.go")
-		assertExists(t, out, "internal/platform/jobs/runner.go")
-		assertMissing(t, out, "internal/features/cart")
-		assertMissing(t, out, "internal/wiring")
-		assertMissing(t, out, "internal/core/money.go")
-		assertMissing(t, out, "internal/platform/email")
+		assertExists(t, out, "go.mod")
+		assertExists(t, out, "internal/platform/web/router.go")
+		assertMissing(t, out, "go.mod.tmpl")
+		assertMissing(t, out, "internal/features")
 		assertMissing(t, out, "cmd/worker")
-
-		goBuild(t, out)
-		goVet(t, out)
-		gofmtClean(t, out)
-	})
-
-	t.Run("with worker", func(t *testing.T) {
-		files, err := scaffold.Generate(fsys, scaffold.Options{
-			Module:      "github.com/example/e2eworker",
-			ProjectName: "e2eworker",
-			Worker:      true,
-		}, assets.Overrides())
-		require.NoError(t, err, "generate")
-
-		out := filepath.Join(t.TempDir(), "e2eworker")
-		require.NoError(t, scaffold.Write(out, files, false), "write")
-
-		assertExists(t, out, "cmd/worker/main.go")
-		assertExists(t, out, ".air.worker.toml")
-		assertExists(t, out, "internal/platform/jobs/runner.go")
 
 		goBuild(t, out)
 		goVet(t, out)

@@ -1,6 +1,7 @@
 package scaffold
 
 import (
+	"io/fs"
 	"testing"
 	"testing/fstest"
 
@@ -8,50 +9,78 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGenerate(t *testing.T) {
-	src := fstest.MapFS{
-		"go.mod":                            {Data: []byte("module " + TemplateModule + "\n")},
-		"internal/features/auth/service.go": {Data: []byte("package auth // " + TemplateModule)},
-		"internal/features/cart/service.go": {Data: []byte("package cart")}, // dropped
-		"internal/server/router.go":         {Data: []byte("package server // template original")},
-		"bin/run_test":                      {Data: []byte("binary")}, // dropped
-	}
-	overrides := fstest.MapFS{
-		"internal/server/router.go.tmpl": {Data: []byte("package server // OVERRIDE " + TemplateModule)},
-		"README.md":                      {Data: []byte("# __PROJECT_NAME__")},
+func TestGenerate_RendersTemplatesAndRewritesTokens(t *testing.T) {
+	skeleton := fstest.MapFS{
+		"go.mod.tmpl":               {Data: []byte("module {{.Module}}\n")},
+		"internal/server/server.go": {Data: []byte("package server // " + TemplateModule + "/internal/app\n")},
+		"README.md":                 {Data: []byte("# __PROJECT_NAME__")},
 	}
 
-	out, err := Generate(src, Options{Module: "github.com/me/myapp", ProjectName: "myapp"}, overrides)
+	out, err := Generate(Options{Module: "github.com/me/myapp", ProjectName: "myapp"}, skeleton)
 	require.NoError(t, err)
 
-	// dropped paths absent
-	assert.NotContains(t, out, "internal/features/cart/service.go")
-	assert.NotContains(t, out, "bin/run_test")
-	// kept + rewritten
 	assert.Equal(t, "module github.com/me/myapp\n", string(out["go.mod"].Data))
-	// .go files are re-formatted (go/format), so assert on content rather than exact bytes.
-	assert.Contains(t, string(out["internal/features/auth/service.go"].Data), "package auth // github.com/me/myapp")
-	// override replaces source, .tmpl stripped, rewritten
-	assert.Contains(t, string(out["internal/server/router.go"].Data), "package server // OVERRIDE github.com/me/myapp")
-	assert.NotContains(t, out, "internal/server/router.go.tmpl")
-	// project-name token replaced
+	assert.NotContains(t, out, "go.mod.tmpl")
+	assert.Equal(t, "package server // github.com/me/myapp/internal/app\n", string(out["internal/server/server.go"].Data))
 	assert.Equal(t, "# myapp", string(out["README.md"].Data))
 }
 
-func TestGenerate_WorkerTemplating(t *testing.T) {
-	src := fstest.MapFS{"go.mod": {Data: []byte("module x")}}
-	overrides := fstest.MapFS{
-		"cmd/worker/main.go.tmpl":        {Data: []byte("{{if .Worker}}package main\n{{- end}}\n")},
-		"internal/config/config.go.tmpl": {Data: []byte("package config\n{{if .Worker}}// worker{{end}}\n")},
+func TestGenerate_OmitsTemplateThatRendersToWhitespace(t *testing.T) {
+	skeleton := fstest.MapFS{
+		"gated.go.tmpl": {Data: []byte("{{if eq .ProjectName \"other\"}}package gated{{end}}\n")},
 	}
 
-	off, err := Generate(src, Options{Module: "m", ProjectName: "p"}, overrides)
+	out, err := Generate(Options{Module: "m", ProjectName: "p"}, skeleton)
 	require.NoError(t, err)
-	assert.NotContains(t, off, "cmd/worker/main.go", "worker-only file omitted without --worker")
-	assert.NotContains(t, string(off["internal/config/config.go"].Data), "// worker")
 
-	on, err := Generate(src, Options{Module: "m", ProjectName: "p", Worker: true}, overrides)
+	assert.NotContains(t, out, "gated.go")
+	assert.NotContains(t, out, "gated.go.tmpl")
+}
+
+func TestGenerate_LaterLayerWins(t *testing.T) {
+	skeleton := fstest.MapFS{
+		"shared.txt": {Data: []byte("skeleton")},
+		"base.txt":   {Data: []byte("base")},
+	}
+	overlay := fstest.MapFS{
+		"shared.txt": {Data: []byte("overlay")},
+		"extra.txt":  {Data: []byte("extra")},
+	}
+
+	out, err := Generate(Options{Module: "m", ProjectName: "p"}, skeleton, overlay)
 	require.NoError(t, err)
-	assert.Contains(t, on, "cmd/worker/main.go", "worker-only file present with --worker")
-	assert.Contains(t, string(on["internal/config/config.go"].Data), "// worker")
+
+	assert.Equal(t, "overlay", string(out["shared.txt"].Data))
+	assert.Equal(t, "base", string(out["base.txt"].Data))
+	assert.Equal(t, "extra", string(out["extra.txt"].Data))
+}
+
+func TestGenerate_FormatsGoFiles(t *testing.T) {
+	skeleton := fstest.MapFS{"x.go": {Data: []byte("package x\nfunc  f() {}\n")}}
+
+	out, err := Generate(Options{Module: "m", ProjectName: "p"}, skeleton)
+	require.NoError(t, err)
+
+	assert.Equal(t, "package x\n\nfunc f() {}\n", string(out["x.go"].Data))
+}
+
+func TestGenerate_NormalizesModes(t *testing.T) {
+	skeleton := fstest.MapFS{
+		"script.sh": {Data: []byte("#!/bin/sh\n"), Mode: 0o700},
+		"notes.txt": {Data: []byte("notes"), Mode: 0o600},
+	}
+
+	out, err := Generate(Options{Module: "m", ProjectName: "p"}, skeleton)
+	require.NoError(t, err)
+
+	assert.Equal(t, fs.FileMode(0o755), out["script.sh"].Mode)
+	assert.Equal(t, fs.FileMode(0o644), out["notes.txt"].Mode)
+}
+
+func TestGenerate_RejectsInvalidTemplate(t *testing.T) {
+	skeleton := fstest.MapFS{"broken.txt.tmpl": {Data: []byte("{{.Module")}}
+
+	_, err := Generate(Options{Module: "m", ProjectName: "p"}, skeleton)
+
+	assert.ErrorContains(t, err, "broken.txt.tmpl")
 }
