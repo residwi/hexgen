@@ -27,18 +27,15 @@ func TestDataSQL_Applies(t *testing.T) {
 	_, err = pool.Exec(ctx, string(seedSQL))
 	require.NoError(t, err, "db/seeds/data.sql must apply cleanly against a freshly migrated database")
 
-	// A seeded product must resolve to a real inventory_levels row with the stock
-	// the file claims, not merely produce no SQL error.
-	var availableStock, reservedStock int
-	err = pool.QueryRow(ctx, `
-		SELECT il.available_stock, il.reserved_stock
-		FROM products p
-		JOIN inventory_levels il ON il.product_id = p.id
-		WHERE p.slug = 'wireless-headphones'
-	`).Scan(&availableStock, &reservedStock)
-	require.NoError(t, err, "seeded product must have a matching inventory_levels row")
-	assert.Equal(t, 100, availableStock)
-	assert.Equal(t, 0, reservedStock)
+	// The seed must produce a real admin, not merely run without an SQL error.
+	var role string
+	var active bool
+	err = pool.QueryRow(ctx,
+		`SELECT role, active FROM users WHERE email = 'admin@example.com'`,
+	).Scan(&role, &active)
+	require.NoError(t, err, "seed must insert the dev admin user")
+	assert.Equal(t, "admin", role)
+	assert.True(t, active)
 
 	// Re-applying must stay a no-op, as running `make seed` twice would.
 	_, err = pool.Exec(ctx, string(seedSQL))
