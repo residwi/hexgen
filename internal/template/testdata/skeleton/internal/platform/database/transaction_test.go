@@ -105,21 +105,25 @@ func TestTxRunner_Run(t *testing.T) {
 	pool := newTestPool(t)
 	runner := NewTxRunner(pool)
 
+	// A table this test owns, so it needs no feature migration. Not TEMP: the
+	// assertions below read through the pool, which may pick another connection.
+	_, err := pool.Exec(context.Background(), `CREATE TABLE IF NOT EXISTS txrunner_test (email TEXT PRIMARY KEY)`)
+	require.NoError(t, err)
+
 	t.Run("commits when fn returns nil", func(t *testing.T) {
 		ctx := context.Background()
 		email := "txrunner-commit-" + uuid.NewString() + "@example.com"
 
 		err := runner.Run(ctx, func(txCtx context.Context) error {
 			_, err := PrimaryDB(txCtx, DB{Primary: pool}).Exec(txCtx,
-				`INSERT INTO users (email, password_hash, first_name, last_name)
-				 VALUES ($1, 'x', 'Tx', 'Runner')`, email)
+				`INSERT INTO txrunner_test (email) VALUES ($1)`, email)
 			return err
 		})
 		require.NoError(t, err)
 
 		var count int
 		require.NoError(t, pool.QueryRow(ctx,
-			`SELECT COUNT(*) FROM users WHERE email = $1`, email).Scan(&count))
+			`SELECT COUNT(*) FROM txrunner_test WHERE email = $1`, email).Scan(&count))
 		assert.Equal(t, 1, count)
 	})
 
@@ -130,8 +134,7 @@ func TestTxRunner_Run(t *testing.T) {
 
 		err := runner.Run(ctx, func(txCtx context.Context) error {
 			if _, err := PrimaryDB(txCtx, DB{Primary: pool}).Exec(txCtx,
-				`INSERT INTO users (email, password_hash, first_name, last_name)
-				 VALUES ($1, 'x', 'Tx', 'Runner')`, email); err != nil {
+				`INSERT INTO txrunner_test (email) VALUES ($1)`, email); err != nil {
 				return err
 			}
 			return sentinel
@@ -140,7 +143,7 @@ func TestTxRunner_Run(t *testing.T) {
 
 		var count int
 		require.NoError(t, pool.QueryRow(ctx,
-			`SELECT COUNT(*) FROM users WHERE email = $1`, email).Scan(&count))
+			`SELECT COUNT(*) FROM txrunner_test WHERE email = $1`, email).Scan(&count))
 		assert.Equal(t, 0, count, "insert must not survive a returned error")
 	})
 
@@ -152,8 +155,7 @@ func TestTxRunner_Run(t *testing.T) {
 		err := runner.Run(ctx, func(outerCtx context.Context) error {
 			if err := runner.Run(outerCtx, func(innerCtx context.Context) error {
 				_, err := PrimaryDB(innerCtx, DB{Primary: pool}).Exec(innerCtx,
-					`INSERT INTO users (email, password_hash, first_name, last_name)
-					 VALUES ($1, 'x', 'Tx', 'Runner')`, email)
+					`INSERT INTO txrunner_test (email) VALUES ($1)`, email)
 				return err
 			}); err != nil {
 				return err
@@ -164,7 +166,7 @@ func TestTxRunner_Run(t *testing.T) {
 
 		var count int
 		require.NoError(t, pool.QueryRow(ctx,
-			`SELECT COUNT(*) FROM users WHERE email = $1`, email).Scan(&count))
+			`SELECT COUNT(*) FROM txrunner_test WHERE email = $1`, email).Scan(&count))
 		assert.Equal(t, 0, count,
 			"inner Run must join the outer tx, so the outer rollback discards it")
 	})

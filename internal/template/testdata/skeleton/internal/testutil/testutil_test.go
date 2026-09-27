@@ -27,12 +27,15 @@ func TestMustStartPostgresIsRepeatableWithoutDroppingData(t *testing.T) {
 	poolA, cleanupA := testutil.MustStartPostgres("test_helper_share")
 	t.Cleanup(cleanupA)
 
-	// ON CONFLICT DO NOTHING: the database this test claims is never dropped once
-	// created, so a prior run of this same test left its row behind. Without it,
-	// the second `go test` invocation against a warm container fails on the
-	// slug's UNIQUE constraint instead of exercising the behaviour under test.
-	_, err := poolA.Exec(context.Background(),
-		`INSERT INTO categories (name, slug) VALUES ('Survivor', 'survivor') ON CONFLICT (slug) DO NOTHING`)
+	// The test owns its table, so it needs no feature migration. ON CONFLICT DO
+	// NOTHING: the database this test claims is never dropped once created, so a
+	// prior run of this same test left its row behind. Without it, the second
+	// `go test` invocation against a warm container fails on the slug's primary
+	// key instead of exercising the behaviour under test.
+	_, err := poolA.Exec(context.Background(), `CREATE TABLE IF NOT EXISTS testutil_probe (slug TEXT PRIMARY KEY)`)
+	require.NoError(t, err)
+	_, err = poolA.Exec(context.Background(),
+		`INSERT INTO testutil_probe (slug) VALUES ('survivor') ON CONFLICT (slug) DO NOTHING`)
 	require.NoError(t, err)
 
 	poolB, cleanupB := testutil.MustStartPostgres("test_helper_share")
@@ -40,7 +43,7 @@ func TestMustStartPostgresIsRepeatableWithoutDroppingData(t *testing.T) {
 
 	var count int
 	require.NoError(t, poolB.QueryRow(context.Background(),
-		`SELECT count(*) FROM categories WHERE slug = 'survivor'`).Scan(&count))
+		`SELECT count(*) FROM testutil_probe WHERE slug = 'survivor'`).Scan(&count))
 
 	assert.Equal(t, 1, count, "second call must attach to the existing database, not recreate it")
 }
@@ -79,8 +82,10 @@ func TestMustStartPostgresConcurrentCreateWaitsForMigration(t *testing.T) {
 			defer wg.Done()
 			pool, cleanup := testutil.MustStartPostgres(name)
 			cleanups[i] = cleanup
+			// river_job is created by the last migration step (River runs after
+			// goose), so querying it proves this pool's schema is fully migrated.
 			var count int
-			errs[i] = pool.QueryRow(context.Background(), `SELECT count(*) FROM categories`).Scan(&count)
+			errs[i] = pool.QueryRow(context.Background(), `SELECT count(*) FROM river_job`).Scan(&count)
 		}(i)
 	}
 	wg.Wait()
@@ -122,20 +127,20 @@ func TestMustStartPostgresReattachRepairsPartialMigration(t *testing.T) {
 
 	db := stdlib.OpenDBFromPool(pool)
 	require.NoError(t, goose.SetDialect("postgres"))
-	require.NoError(t, goose.DownToContext(context.Background(), db, migrationsDir(), 20260424120017))
+	require.NoError(t, goose.DownToContext(context.Background(), db, migrationsDir(), 0))
 	require.NoError(t, db.Close())
 
-	// products.stock_quantity is what migration 20260424120018 drops;
-	// rolling back to 20260424120017 should have restored the column, confirming the rollback
+	// update_updated_at_column() is what the first migration creates; rolling
+	// every migration back should have dropped it, confirming the rollback
 	// actually did something before we test whether reattaching undoes it.
-	require.True(t, hasStockQuantityColumn(t, pool),
-		"test setup: goose Down should have restored the column")
+	require.False(t, hasUpdatedAtFunction(t, pool),
+		"test setup: goose Down should have dropped the function")
 
 	pool2, cleanup2 := testutil.MustStartPostgres(name)
 	t.Cleanup(cleanup2)
 
-	assert.False(t, hasStockQuantityColumn(t, pool2),
-		"reattaching must reapply the pending migration, not skip it because the database already existed")
+	assert.True(t, hasUpdatedAtFunction(t, pool2),
+		"reattaching must reapply the pending migrations, not skip them because the database already existed")
 }
 
 func TestMustStartPostgresAppliesRiverSchema(t *testing.T) {
@@ -203,15 +208,13 @@ func migrationsDir() string {
 	return filepath.Join(filepath.Dir(file), "..", "..", "db", "migrations")
 }
 
-// hasStockQuantityColumn checks the column the last migration
-// (20260424120018) drops, so tests can tell whether that migration is
-// currently applied.
-func hasStockQuantityColumn(t *testing.T, pool *pgxpool.Pool) bool {
+// hasUpdatedAtFunction checks the function the first migration creates, so
+// tests can tell whether that migration is currently applied.
+func hasUpdatedAtFunction(t *testing.T, pool *pgxpool.Pool) bool {
 	t.Helper()
 	var present bool
-	require.NoError(t, pool.QueryRow(context.Background(), `
-		SELECT EXISTS (SELECT 1 FROM information_schema.columns
-		WHERE table_name = 'products' AND column_name = 'stock_quantity')`,
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'update_updated_at_column')`,
 	).Scan(&present))
 	return present
 }
