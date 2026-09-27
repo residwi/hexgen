@@ -78,6 +78,7 @@ func checkProject(t *testing.T, dir string) {
 	run(t, dir, "go", "vet", "./...")
 	gofmtClean(t, dir)
 	run(t, dir, "go", "run", goArchLint, "check")
+	run(t, dir, "make", "-n", "build")
 
 	if exec.Command("docker", "info").Run() != nil {
 		t.Log("docker unavailable: skipping go test in the generated project")
@@ -99,7 +100,8 @@ func assertMissing(t *testing.T, root, rel string) {
 }
 
 // assertNoLeftoverNames fails for any generated file that still names the
-// template's domain, the template module, or an unreplaced project-name token.
+// template's domain, the template module, a dropped binary, or an unreplaced
+// project-name token.
 func assertNoLeftoverNames(t *testing.T, root string) {
 	t.Helper()
 	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
@@ -118,6 +120,9 @@ func assertNoLeftoverNames(t *testing.T, root string) {
 		assert.Falsef(t, strings.Contains(strings.ToLower(s), "ecommerce"), "%s mentions ecommerce", rel)
 		assert.Falsef(t, strings.Contains(s, "go-api-project-template"), "%s mentions go-api-project-template", rel)
 		assert.Falsef(t, strings.Contains(s, "__PROJECT_NAME__"), "%s has an unreplaced __PROJECT_NAME__", rel)
+		for _, dropped := range []string{"mockgateway", "cmd/worker"} {
+			assert.Falsef(t, strings.Contains(s, dropped), "%s mentions dropped %s", rel, dropped)
+		}
 		return nil
 	})
 	require.NoError(t, err)
