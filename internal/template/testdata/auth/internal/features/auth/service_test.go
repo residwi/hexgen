@@ -1,0 +1,626 @@
+package auth
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"log/slog"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
+
+	"github.com/residwi/go-api-project-template/internal/features/auth/adapter/jwt"
+	"github.com/residwi/go-api-project-template/internal/features/auth/domain"
+	"github.com/residwi/go-api-project-template/internal/features/user"
+	"github.com/residwi/go-api-project-template/internal/platform/errs"
+	"github.com/residwi/go-api-project-template/internal/platform/identity"
+)
+
+func TestService_Login(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+
+		users := NewMockUserDirectory(t)
+
+		userID := uuid.New()
+		hash, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.MinCost)
+		creds := user.Credentials{
+			ID:           userID,
+			Email:        "test@example.com",
+			PasswordHash: string(hash),
+			FirstName:    "John",
+			LastName:     "Doe",
+			Role:         "customer",
+			Active:       true,
+			TokenVersion: 1,
+		}
+
+		users.EXPECT().GetByEmail(mock.Anything, "test@example.com").Return(creds, nil)
+
+		resp, err := newTestService(users).
+			Login(context.Background(), "test@example.com", "password123")
+
+		require.NoError(t, err)
+		assert.NotEmpty(t, resp.AccessToken)
+		assert.NotEmpty(t, resp.RefreshToken)
+		assert.Equal(t, user.Profile{
+			ID:           userID,
+			Email:        "test@example.com",
+			FirstName:    "John",
+			LastName:     "Doe",
+			Role:         "customer",
+			Active:       true,
+			TokenVersion: 1,
+		}, resp.User)
+	})
+
+	t.Run("inactive account with a wrong password is indistinguishable from wrong password", func(t *testing.T) {
+		t.Parallel()
+
+		users := NewMockUserDirectory(t)
+
+		hash, _ := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.MinCost)
+		users.EXPECT().GetByEmail(mock.Anything, "inactive@example.com").Return(user.Credentials{
+			ID:           uuid.New(),
+			Email:        "inactive@example.com",
+			PasswordHash: string(hash),
+			Active:       false,
+		}, nil)
+
+		resp, err := newTestService(users).
+			Login(context.Background(), "inactive@example.com", "wrong-password")
+
+		assert.Nil(t, resp)
+		require.ErrorIs(t, err, ErrInvalidCredentials)
+		assert.NotErrorIs(t, err, ErrAccountDeactivated)
+	})
+
+	t.Run("inactive account with the correct password returns ErrAccountDeactivated after bcrypt", func(t *testing.T) {
+		t.Parallel()
+
+		users := NewMockUserDirectory(t)
+
+		hash, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.MinCost)
+		users.EXPECT().GetByEmail(mock.Anything, "inactive@example.com").Return(user.Credentials{
+			ID:           uuid.New(),
+			Email:        "inactive@example.com",
+			PasswordHash: string(hash),
+			Active:       false,
+		}, nil)
+
+		resp, err := newTestService(users).
+			Login(context.Background(), "inactive@example.com", "password123")
+
+		assert.Nil(t, resp)
+		assert.ErrorIs(t, err, ErrAccountDeactivated)
+	})
+
+	t.Run("wrong password returns ErrInvalidCredentials", func(t *testing.T) {
+		t.Parallel()
+
+		users := NewMockUserDirectory(t)
+
+		hash, _ := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.MinCost)
+		users.EXPECT().GetByEmail(mock.Anything, "test@example.com").Return(user.Credentials{
+			ID:           uuid.New(),
+			Email:        "test@example.com",
+			PasswordHash: string(hash),
+			Active:       true,
+		}, nil)
+
+		resp, err := newTestService(users).
+			Login(context.Background(), "test@example.com", "wrong-password")
+
+		assert.Nil(t, resp)
+		assert.ErrorIs(t, err, ErrInvalidCredentials)
+	})
+
+	t.Run("user not found returns ErrInvalidCredentials", func(t *testing.T) {
+		t.Parallel()
+
+		users := NewMockUserDirectory(t)
+
+		users.EXPECT().GetByEmail(mock.Anything, "notfound@example.com").
+			Return(user.Credentials{}, errors.New("not found"))
+
+		resp, err := newTestService(users).
+			Login(context.Background(), "notfound@example.com", "password123")
+
+		assert.Nil(t, resp)
+		assert.ErrorIs(t, err, ErrInvalidCredentials)
+	})
+}
+
+func TestService_Register(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+
+		users := NewMockUserDirectory(t)
+
+		userID := uuid.New()
+		createdUser := user.Profile{
+			ID:        userID,
+			Email:     "test@example.com",
+			FirstName: "John",
+			LastName:  "Doe",
+			Role:      "customer",
+			Active:    true,
+		}
+
+		users.EXPECT().Create(mock.Anything, mock.MatchedBy(func(p user.NewUser) bool {
+			return p.Email == "test@example.com" &&
+				p.FirstName == "John" &&
+				p.LastName == "Doe" &&
+				bcrypt.CompareHashAndPassword([]byte(p.PasswordHash), []byte("password123")) == nil
+		})).Return(createdUser, nil)
+
+		resp, err := newTestService(users).
+			Register(context.Background(), "test@example.com", "password123", "John", "Doe")
+
+		require.NoError(t, err)
+		assert.Equal(t, userID, resp.User.ID)
+		assert.Equal(t, "test@example.com", resp.User.Email)
+		assert.NotEmpty(t, resp.AccessToken)
+		assert.NotEmpty(t, resp.RefreshToken)
+	})
+
+	t.Run("Create error propagates", func(t *testing.T) {
+		t.Parallel()
+
+		users := NewMockUserDirectory(t)
+
+		users.EXPECT().Create(mock.Anything, mock.Anything).
+			Return(user.Profile{}, errs.ErrConflict)
+
+		resp, err := newTestService(users).
+			Register(context.Background(), "dup@example.com", "password123", "John", "Doe")
+
+		assert.Nil(t, resp)
+		assert.ErrorIs(t, err, errs.ErrConflict)
+	})
+
+	t.Run("password exceeding 72 bytes is a bad request, not a 500", func(t *testing.T) {
+		t.Parallel()
+
+		longPassword := strings.Repeat("a", 73)
+
+		var users UserDirectory
+		resp, err := newTestService(users).
+			Register(context.Background(), "test@example.com", longPassword, "John", "Doe")
+
+		assert.Nil(t, resp)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, errs.ErrBadRequest)
+	})
+}
+
+func TestService_Refresh(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+
+		users := NewMockUserDirectory(t)
+		svc := newTestService(users)
+
+		userID := uuid.New()
+		user := user.Profile{
+			ID:           userID,
+			Email:        "test@example.com",
+			FirstName:    "John",
+			LastName:     "Doe",
+			Role:         "customer",
+			Active:       true,
+			TokenVersion: 1,
+		}
+
+		// Mint a real refresh token the way Login/Register would, so this
+		// exercises Refresh's own ValidateToken rather than a mock -- once
+		// token folded into Service there is no longer a separate
+		// TokenValidator to inject one behind.
+		pair, err := svc.BuildTokenPair(user)
+		require.NoError(t, err)
+
+		users.EXPECT().GetProfile(mock.Anything, userID).Return(user, nil)
+
+		resp, err := svc.Refresh(context.Background(), pair.RefreshToken)
+
+		require.NoError(t, err)
+		assert.NotEmpty(t, resp.AccessToken)
+		assert.NotEmpty(t, resp.RefreshToken)
+	})
+
+	t.Run("invalid token returns ErrInvalidToken", func(t *testing.T) {
+		t.Parallel()
+
+		var users UserDirectory
+		svc := newTestService(users)
+
+		resp, err := svc.Refresh(context.Background(), "not-a-token")
+
+		assert.Nil(t, resp)
+		assert.ErrorIs(t, err, ErrInvalidToken)
+	})
+
+	t.Run("access token instead of refresh returns ErrInvalidToken", func(t *testing.T) {
+		t.Parallel()
+
+		var users UserDirectory
+		svc := newTestService(users)
+
+		pair, err := svc.BuildTokenPair(user.Profile{
+			ID: uuid.New(), Email: "test@example.com", Role: "customer", TokenVersion: 1,
+		})
+		require.NoError(t, err)
+
+		resp, err := svc.Refresh(context.Background(), pair.AccessToken)
+
+		assert.Nil(t, resp)
+		assert.ErrorIs(t, err, ErrInvalidToken)
+	})
+
+	t.Run("GetProfile error propagates", func(t *testing.T) {
+		t.Parallel()
+
+		users := NewMockUserDirectory(t)
+		svc := newTestService(users)
+
+		userID := uuid.New()
+		pair, err := svc.BuildTokenPair(user.Profile{
+			ID: userID, Email: "test@example.com", Role: "customer", TokenVersion: 1,
+		})
+		require.NoError(t, err)
+
+		dbErr := errors.New("database connection lost")
+		users.EXPECT().GetProfile(mock.Anything, userID).Return(user.Profile{}, dbErr)
+
+		resp, err := svc.Refresh(context.Background(), pair.RefreshToken)
+
+		assert.Nil(t, resp)
+		assert.ErrorIs(t, err, dbErr)
+	})
+
+	t.Run("rejects a token whose user was deleted", func(t *testing.T) {
+		t.Parallel()
+
+		users := NewMockUserDirectory(t)
+		s := newTestService(users)
+
+		profile := user.Profile{ID: uuid.New(), Role: "user", Active: true, TokenVersion: 1}
+		pair, err := s.BuildTokenPair(profile)
+		require.NoError(t, err)
+
+		users.EXPECT().GetProfile(mock.Anything, profile.ID).
+			Return(user.Profile{}, errs.ErrNotFound)
+
+		_, err = s.Refresh(context.Background(), pair.RefreshToken)
+		require.ErrorIs(t, err, ErrInvalidToken)
+		assert.NotErrorIs(t, err, errs.ErrNotFound)
+	})
+
+	t.Run("rejects a deactivated account with ErrAccountDeactivated", func(t *testing.T) {
+		t.Parallel()
+
+		users := NewMockUserDirectory(t)
+		s := newTestService(users)
+
+		profile := user.Profile{ID: uuid.New(), Role: "user", Active: true, TokenVersion: 1}
+		pair, err := s.BuildTokenPair(profile)
+		require.NoError(t, err)
+
+		users.EXPECT().GetProfile(mock.Anything, profile.ID).
+			Return(user.Profile{ID: profile.ID, Active: false, TokenVersion: 1}, nil)
+
+		resp, err := s.Refresh(context.Background(), pair.RefreshToken)
+		assert.Nil(t, resp)
+		assert.ErrorIs(t, err, ErrAccountDeactivated)
+	})
+
+	t.Run("rejects a superseded token version with ErrTokenRevoked", func(t *testing.T) {
+		t.Parallel()
+
+		users := NewMockUserDirectory(t)
+		s := newTestService(users)
+
+		profile := user.Profile{ID: uuid.New(), Role: "user", Active: true, TokenVersion: 1}
+		pair, err := s.BuildTokenPair(profile)
+		require.NoError(t, err)
+
+		users.EXPECT().GetProfile(mock.Anything, profile.ID).
+			Return(user.Profile{ID: profile.ID, Active: true, TokenVersion: 2}, nil)
+
+		resp, err := s.Refresh(context.Background(), pair.RefreshToken)
+		assert.Nil(t, resp)
+		assert.ErrorIs(t, err, ErrTokenRevoked)
+	})
+}
+
+func TestService_BuildTokenPair(t *testing.T) {
+	t.Parallel()
+
+	userID := uuid.New()
+	user := user.Profile{
+		ID:           userID,
+		Email:        "user@example.com",
+		Role:         "customer",
+		TokenVersion: 1,
+	}
+
+	t.Run("success produces valid tokens for both kinds", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := newTestConfig()
+		tokens := jwt.New(cfg.Secret, cfg.Issuer)
+		var users UserDirectory
+		svc := New(cfg, users, tokens, slog.New(slog.DiscardHandler))
+
+		pair, err := svc.BuildTokenPair(user)
+		require.NoError(t, err)
+		assert.NotEmpty(t, pair.AccessToken)
+		assert.NotEmpty(t, pair.RefreshToken)
+		assert.Equal(t, cfg.AccessTokenTTL, pair.ExpiresIn)
+		assert.Equal(t, user, pair.User)
+
+		want := domain.Claims{UserID: userID, Role: "customer", TokenVersion: 1}
+
+		accessClaims, err := tokens.Verify(pair.AccessToken, domain.KindAccess)
+		require.NoError(t, err)
+		assert.Equal(t, want, accessClaims)
+
+		refreshClaims, err := tokens.Verify(pair.RefreshToken, domain.KindRefresh)
+		require.NoError(t, err)
+		assert.Equal(t, want, refreshClaims)
+
+		// the pair is two distinct kinds, not the same token twice
+		_, err = tokens.Verify(pair.RefreshToken, domain.KindAccess)
+		assert.Error(t, err)
+	})
+}
+
+func TestService_Authenticate(t *testing.T) {
+	t.Parallel()
+
+	t.Run("rejects a token that does not parse", func(t *testing.T) {
+		t.Parallel()
+
+		users := NewMockUserDirectory(t)
+		svc := newTestService(users)
+
+		_, err := svc.Authenticate(context.Background(), "not-a-token")
+
+		assert.ErrorIs(t, err, ErrInvalidToken)
+	})
+
+	t.Run("rejects a refresh token used as an access token", func(t *testing.T) {
+		t.Parallel()
+
+		users := NewMockUserDirectory(t)
+		svc := newTestService(users)
+
+		profile := user.Profile{ID: uuid.New(), Email: "a@example.com", Role: "user", TokenVersion: 1}
+		pair, err := svc.BuildTokenPair(profile)
+		require.NoError(t, err)
+
+		_, err = svc.Authenticate(context.Background(), pair.RefreshToken)
+
+		assert.ErrorIs(t, err, ErrInvalidToken)
+	})
+
+	t.Run("rejects a deactivated account", func(t *testing.T) {
+		t.Parallel()
+
+		users := NewMockUserDirectory(t)
+		svc := newTestService(users)
+
+		profile := user.Profile{ID: uuid.New(), Email: "a@example.com", Role: "user", TokenVersion: 1}
+		pair, err := svc.BuildTokenPair(profile)
+		require.NoError(t, err)
+
+		users.EXPECT().GetProfile(mock.Anything, profile.ID).
+			Return(user.Profile{ID: profile.ID, Active: false, TokenVersion: 1}, nil)
+
+		_, err = svc.Authenticate(context.Background(), pair.AccessToken)
+
+		assert.ErrorIs(t, err, ErrAccountDeactivated)
+	})
+
+	t.Run("rejects a token whose version is behind the account", func(t *testing.T) {
+		t.Parallel()
+
+		users := NewMockUserDirectory(t)
+		svc := newTestService(users)
+
+		profile := user.Profile{ID: uuid.New(), Email: "a@example.com", Role: "user", TokenVersion: 1}
+		pair, err := svc.BuildTokenPair(profile)
+		require.NoError(t, err)
+
+		users.EXPECT().GetProfile(mock.Anything, profile.ID).
+			Return(user.Profile{ID: profile.ID, Active: true, TokenVersion: 2}, nil)
+
+		_, err = svc.Authenticate(context.Background(), pair.AccessToken)
+
+		assert.ErrorIs(t, err, ErrTokenRevoked)
+	})
+
+	t.Run("surfaces a profile lookup failure instead of rejecting the caller", func(t *testing.T) {
+		t.Parallel()
+
+		users := NewMockUserDirectory(t)
+		svc := newTestService(users)
+
+		profile := user.Profile{ID: uuid.New(), Email: "a@example.com", Role: "user", TokenVersion: 1}
+		pair, err := svc.BuildTokenPair(profile)
+		require.NoError(t, err)
+
+		users.EXPECT().GetProfile(mock.Anything, profile.ID).
+			Return(user.Profile{}, assert.AnError)
+
+		_, err = svc.Authenticate(context.Background(), pair.AccessToken)
+
+		require.ErrorIs(t, err, assert.AnError)
+		assert.NotErrorIs(t, err, errs.ErrUnauthorized)
+	})
+
+	t.Run("rejects an access token whose user was deleted", func(t *testing.T) {
+		t.Parallel()
+
+		users := NewMockUserDirectory(t)
+		svc := newTestService(users)
+
+		profile := user.Profile{ID: uuid.New(), Role: "user", Active: true, TokenVersion: 1}
+		pair, err := svc.BuildTokenPair(profile)
+		require.NoError(t, err)
+
+		users.EXPECT().GetProfile(mock.Anything, profile.ID).
+			Return(user.Profile{}, errs.ErrNotFound)
+
+		_, err = svc.Authenticate(context.Background(), pair.AccessToken)
+		require.ErrorIs(t, err, ErrInvalidToken)
+		assert.NotErrorIs(t, err, errs.ErrNotFound)
+	})
+
+	t.Run("returns the identity for a live access token", func(t *testing.T) {
+		t.Parallel()
+
+		users := NewMockUserDirectory(t)
+		svc := newTestService(users)
+
+		profile := user.Profile{ID: uuid.New(), Email: "a@example.com", Role: "admin", TokenVersion: 4}
+		pair, err := svc.BuildTokenPair(profile)
+		require.NoError(t, err)
+
+		users.EXPECT().GetProfile(mock.Anything, profile.ID).
+			Return(user.Profile{ID: profile.ID, Role: "admin", Active: true, TokenVersion: 4}, nil)
+
+		id, err := svc.Authenticate(context.Background(), pair.AccessToken)
+
+		require.NoError(t, err)
+		assert.Equal(t, identity.Identity{UserID: profile.ID, Role: profile.Role}, id)
+	})
+
+	t.Run("takes the role from the account, not the token", func(t *testing.T) {
+		t.Parallel()
+
+		users := NewMockUserDirectory(t)
+		svc := newTestService(users)
+
+		minted := user.Profile{ID: uuid.New(), Email: "a@example.com", Role: "admin", TokenVersion: 4}
+		pair, err := svc.BuildTokenPair(minted)
+		require.NoError(t, err)
+
+		users.EXPECT().GetProfile(mock.Anything, minted.ID).
+			Return(user.Profile{ID: minted.ID, Role: "user", Active: true, TokenVersion: 4}, nil)
+
+		id, err := svc.Authenticate(context.Background(), pair.AccessToken)
+
+		require.NoError(t, err)
+		assert.Equal(t, identity.Identity{UserID: minted.ID, Role: "user"}, id)
+	})
+}
+
+func TestService_LoginSecurityEvents(t *testing.T) {
+	t.Parallel()
+
+	newLoggedService := func(users UserDirectory, buf *bytes.Buffer, level slog.Level) *Service {
+		cfg := newTestConfig()
+		return New(cfg, users, jwt.New(cfg.Secret, cfg.Issuer),
+			slog.New(slog.NewJSONHandler(buf, &slog.HandlerOptions{Level: level})))
+	}
+	existing := func(t *testing.T, id uuid.UUID, email string) user.Credentials {
+		t.Helper()
+		hash, err := bcrypt.GenerateFromPassword([]byte("correct-horse"), bcrypt.MinCost)
+		require.NoError(t, err)
+		return user.Credentials{ID: id, Email: email, Active: true, PasswordHash: string(hash)}
+	}
+
+	t.Run("unknown email is recorded by pseudonym, never by address", func(t *testing.T) {
+		t.Parallel()
+
+		var buf bytes.Buffer
+		users := NewMockUserDirectory(t)
+		users.EXPECT().GetByEmail(mock.Anything, "ghost@example.com").
+			Return(user.Credentials{}, errs.ErrNotFound)
+
+		_, err := newLoggedService(users, &buf, slog.LevelWarn).
+			Login(context.Background(), "ghost@example.com", "whatever")
+
+		require.ErrorIs(t, err, ErrInvalidCredentials)
+		assert.Contains(t, buf.String(), `"msg":"login failed"`)
+		assert.Contains(t, buf.String(), `"reason":"unknown_email"`)
+		assert.Contains(t, buf.String(), `"email_pseudonym":"`)
+		assert.NotContains(t, buf.String(), "ghost@example.com")
+	})
+
+	t.Run("wrong password is recorded by user id, never by address", func(t *testing.T) {
+		t.Parallel()
+
+		var buf bytes.Buffer
+		id := uuid.New()
+		users := NewMockUserDirectory(t)
+		users.EXPECT().GetByEmail(mock.Anything, "real@example.com").
+			Return(existing(t, id, "real@example.com"), nil)
+
+		_, err := newLoggedService(users, &buf, slog.LevelWarn).
+			Login(context.Background(), "real@example.com", "wrong")
+
+		require.ErrorIs(t, err, ErrInvalidCredentials)
+		assert.Contains(t, buf.String(), `"reason":"bad_password"`)
+		assert.Contains(t, buf.String(), `"user_id":"`+id.String()+`"`)
+		assert.NotContains(t, buf.String(), "real@example.com")
+	})
+
+	t.Run("the same address maps to the same pseudonym regardless of case", func(t *testing.T) {
+		t.Parallel()
+
+		svc := newTestService(NewMockUserDirectory(t))
+
+		assert.Equal(t, svc.emailPseudonym("ghost@example.com"), svc.emailPseudonym(" Ghost@Example.COM "))
+		assert.NotEqual(t, svc.emailPseudonym("ghost@example.com"), svc.emailPseudonym("other@example.com"))
+	})
+
+	t.Run("a successful login raises no warning", func(t *testing.T) {
+		t.Parallel()
+
+		var buf bytes.Buffer
+		users := NewMockUserDirectory(t)
+		users.EXPECT().GetByEmail(mock.Anything, "real@example.com").
+			Return(existing(t, uuid.New(), "real@example.com"), nil)
+
+		_, err := newLoggedService(users, &buf, slog.LevelWarn).
+			Login(context.Background(), "real@example.com", "correct-horse")
+
+		require.NoError(t, err)
+		assert.Empty(t, buf.String())
+	})
+}
+
+// newTestConfig gives every Service test the same secret, issuer and TTLs
+// token/usecase_test.go used to hard-code per test; subtests that need a
+// different value copy this and override just that field.
+func newTestConfig() Config {
+	return Config{
+		Secret:          "test-secret-key",
+		Issuer:          "test-issuer",
+		AccessTokenTTL:  15 * time.Minute,
+		RefreshTokenTTL: 24 * time.Hour,
+		BcryptCost:      bcrypt.MinCost,
+	}
+}
+
+// newTestService wires the Service the way app.New does, with a real codec, so
+// tests that mint a token and read it back exercise the same path production
+// does. It sets no mock expectations -- each subtest states its own.
+func newTestService(users UserDirectory) *Service {
+	cfg := newTestConfig()
+	return New(cfg, users, jwt.New(cfg.Secret, cfg.Issuer), slog.New(slog.DiscardHandler))
+}
