@@ -10,9 +10,10 @@ fetched when you generate.
 
 - **Default (platform-only):** `cmd/api`, `internal/platform` (database,
   cache, jobqueue, web, ...), `internal/config`, an empty composition root
-  (`internal/app`, `internal/server/router.go`), `internal/testutil`, a baseline
-  migration, and Makefile, Docker, compose, CI, arch-lint and mockery config.
-  No feature modules and no example domain.
+  (`internal/app`, `internal/server/router.go`), `internal/testutil`, goose
+  migrations for the base schema and River's job tables, and Makefile, Docker,
+  compose, CI, arch-lint and mockery config. No feature modules and no example
+  domain.
 - **With `--auth`:** the `auth` and `user` features (register/login/refresh,
   `/users/me`, admin user routes), the users migration and a dev admin seed.
 
@@ -59,9 +60,8 @@ Run `hexgen new` with no name or module in a terminal to be prompted for them.
 2. Render each `.tmpl` file with `text/template` (data: `Module`,
    `ProjectName`, `Auth`) and strip the suffix. A file that renders to only
    whitespace is omitted.
-3. Rewrite the placeholder module path `github.com/residwi/go-api-project-template`
-   to `--module`, replace `__PROJECT_NAME__` with the name, and gofmt every
-   `.go` file.
+3. Replace the module placeholder `__MODULE__` with `--module` and
+   `__PROJECT_NAME__` with the name, then gofmt every `.go` file.
 4. Write the project, run `go mod tidy`, then `git init` and `go build ./...`
    if `--git` and `--check` are set.
 
@@ -76,6 +76,9 @@ directly, and to bring over a fix from the template, port it by hand and run
 - `testdata/` keeps the skeleton out of the hexgen build, since its Go files
   import the placeholder module path. `go.mod` is stored as `go.mod.tmpl`
   because `go:embed` refuses a directory that is its own module.
+- Keep it generic: no names from the template's shop domain. A template test
+  fails on shop terms (cart, order, checkout, product, ...) or on the template's
+  name.
 - Keep `.go` files valid, gofmt-clean Go. Use `.tmpl` only for `go.mod` and
   files with `{{if .Auth}}` content. Files that contain a literal `{{` (the
   GitHub workflows, `.mockery.yml`) stay plain.
