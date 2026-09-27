@@ -1,0 +1,78 @@
+version: 3
+workdir: .
+
+allow:
+  depOnAnyVendor: true
+  deepScan: false
+
+excludeFiles:
+  - "^.*_test\\.go$"
+
+components:
+  cmd-api:
+    in: cmd/api
+  app:
+    in: internal/app
+  server:
+    in: internal/server
+  config:
+    in: internal/config
+  testutil:
+    in: internal/testutil
+  errs:
+    in: internal/platform/errs
+  identity:
+    in: internal/platform/identity
+  paging:
+    in: internal/platform/paging
+  slug:
+    in: internal/platform/slug
+  database:
+    in: internal/platform/database
+  logger:
+    in: internal/platform/logger
+  cache:
+    in: internal/platform/cache
+  jobqueue:
+    in: internal/platform/jobqueue
+  tracing:
+    in: internal/platform/tracing
+  storage:
+    in: internal/platform/storage
+  web:
+    in:
+      - internal/platform/web
+      - internal/platform/web/**
+
+  # Three components per feature. The root is public; domain/ and adapter/
+  # are private to that feature. One glob over features/*/domain/** would
+  # put all of them in a single component and permit every cross-feature
+  # reach, which is the rule this split exists to prevent.
+
+commonComponents:
+  - errs
+  - identity
+  - paging
+  - slug
+  - tracing
+
+# mayDependOn lists what each component imports today. Adding a new
+# cross-feature dependency means editing this file, on purpose.
+deps:
+  app:
+    anyProjectDeps: true
+  cmd-api:
+    mayDependOn:
+      - server
+  jobqueue:
+    mayDependOn:
+      - database
+  server:
+    anyProjectDeps: true
+  tracing:
+    mayDependOn:
+      - errs
+  web:
+    mayDependOn:
+      - logger
+      - web

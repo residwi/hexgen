@@ -1,0 +1,26 @@
+all: true
+force-file-write: true
+formatter: goimports
+log-level: info
+template: testify
+
+dir: "{{.InterfaceDir}}"
+pkgname: "{{.SrcPackageName}}"
+filename: "mocks_test.go"
+
+packages:
+  github.com/residwi/go-api-project-template/internal:
+    config:
+      recursive: true
+  github.com/residwi/go-api-project-template/internal/platform/cache:
+    config:
+      all: false
+  github.com/residwi/go-api-project-template/internal/platform/database:
+    config:
+      all: false
+  github.com/residwi/go-api-project-template/internal/platform/storage:
+    config:
+      all: false
+  github.com/residwi/go-api-project-template/internal/platform/web/request:
+    config:
+      all: false
