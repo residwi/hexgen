@@ -21,16 +21,16 @@ run: ## Run hexgen (pass args via ARGS='new myapp --module github.com/me/myapp')
 	go run ./cmd/hexgen $(ARGS)
 
 .PHONY: test
-test: ## Run all tests including the network e2e (-race)
-	go test -race -count=1 -timeout 5m ./...
+test: ## Run all tests including the e2e (-race)
+	go test -race -count=1 -timeout 10m ./...
 
 .PHONY: test-short
-test-short: ## Run unit tests only (skips the network e2e)
+test-short: ## Run unit tests only (skips the e2e)
 	go test -short -race -count=1 ./...
 
 .PHONY: e2e
-e2e: ## Run the end-to-end test (fetches the template from GitHub)
-	go test -run TestEndToEnd -count=1 -timeout 5m -v .
+e2e: ## Generate both project variants and check them (Docker runs their tests)
+	go test -run TestEndToEnd -count=1 -timeout 10m -v .
 
 .PHONY: cover
 cover: ## Run unit tests with a coverage summary

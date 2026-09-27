@@ -1,21 +1,24 @@
 # go-project-generator (`hexgen`)
 
-A single-binary CLI that bootstraps a fresh Go API project from
-[go-api-project-template](https://github.com/residwi/go-api-project-template) —
-the `rails new` of that template. It fetches the template, carves it down to a
-working **auth + user** skeleton, overlays curated override files, rewrites the
-module path, and writes a ready-to-run project.
+A single-binary CLI that writes a new Go API project in the shape of
+[go-api-project-template](https://github.com/residwi/go-api-project-template):
+a modular monolith of hexagonal feature modules, with layer rules enforced by
+go-arch-lint. The project skeleton is embedded in the binary, so nothing is
+fetched when you generate.
 
 ## What you get
 
-- A compiling project with the `auth` and `user` features, the shared `core` /
-  `platform` / `middleware` infrastructure, tests, and the `users` migration.
-- The template's e-commerce features (cart, order, payment, …) and their
-  platform packages, wiring, mocks, and migrations are dropped.
-- Config, router, error mapping, seeds, Docker, and CI come pre-trimmed for the
-  skeleton; the module path is rewritten to yours and every Go file is gofmt-clean.
-- With `--worker`: a generic background worker (`cmd/worker` built on
-  `internal/platform/jobs.Runner`) plus its config and tooling.
+- **Default (platform-only):** `cmd/api`, `internal/platform` (database,
+  cache, jobqueue, web, ...), `internal/config`, an empty composition root
+  (`internal/app`, `internal/server/router.go`), `internal/testutil`, a baseline
+  migration, and Makefile, Docker, compose, CI, arch-lint and mockery config.
+  No feature modules and no example domain.
+- **With `--auth`:** the `auth` and `user` features (register/login/refresh,
+  `/users/me`, admin user routes), the users migration and a dev admin seed.
+
+The module path is rewritten to yours. The project name becomes the default
+`APP_NAME`, `DB_NAME` and JWT issuer, and names the project's test containers.
+`go mod tidy` runs on the output, and every Go file is gofmt-clean.
 
 ## Install
 
@@ -32,40 +35,64 @@ hexgen new <name> --module <path> [flags]
 hexgen version
 
 hexgen new myapp --module github.com/me/myapp
+hexgen new myapp --module github.com/me/myapp --auth
 ```
 
 Run `hexgen new` with no name or module in a terminal to be prompted for them.
 
 ### Flags for `new`
 
-| Flag       | Description                                                             |
-| ---------- | ----------------------------------------------------------------------- |
-| `--module` | Go module path (required), e.g. `github.com/me/myapp`                   |
-| `--ref`    | template ref to fetch (default `main`)                                  |
-| `--output` | output directory (default `./<name>`)                                   |
-| `--force`  | write into a non-empty directory                                        |
-| `--git`    | run `git init` in the generated project                                 |
-| `--check`  | run `go build ./...` in the output after generating                     |
-| `--worker` | include a background worker (cmd/worker + jobs runner + config/tooling) |
+| Flag       | Description                                                                          |
+| ---------- | ------------------------------------------------------------------------------------ |
+| `--module` | Go module path (required), e.g. `github.com/me/myapp`                                |
+| `--auth`   | include the auth and user features (register/login/refresh, /users/me, admin routes) |
+| `--output` | output directory (default `./<name>`)                                                |
+| `--force`  | write into a non-empty directory                                                     |
+| `--git`    | run `git init` in the generated project                                              |
+| `--check`  | run `go build ./...` in the output after generating                                  |
 
 ## How it works
 
-1. Download the template tarball from GitHub (`codeload`) at `--ref`.
-2. Carve: drop e-commerce features, the payment/email/storage platform packages,
-   cross-feature wiring, and their migrations/mocks (see
-   `internal/scaffold/rules.go`).
-3. Overlay the embedded override tree (`internal/assets/files/`), rendered with
-   `text/template` so `--worker`-only content is gated behind `{{if .Worker}}`.
-4. Rewrite the template module path to `--module`, substitute the project name,
-   and re-format every generated `.go` file.
+1. Walk the embedded skeleton (`internal/template/testdata/skeleton`) and, with
+   `--auth`, the auth overlay (`internal/template/testdata/auth`). A path in the
+   overlay replaces the same path in the skeleton.
+2. Render each `.tmpl` file with `text/template` (data: `Module`,
+   `ProjectName`, `Auth`) and strip the suffix. A file that renders to only
+   whitespace is omitted.
+3. Rewrite the placeholder module path `github.com/residwi/go-api-project-template`
+   to `--module`, replace `__PROJECT_NAME__` with the name, and gofmt every
+   `.go` file.
+4. Write the project, run `go mod tidy`, then `git init` and `go build ./...`
+   if `--git` and `--check` are set.
+
+## The skeleton
+
+The skeleton was copied once from go-api-project-template at
+`05f84b315978ec5d4245b216fd9151a33fabe83e`. hexgen owns it from then on, and
+nothing syncs it back. Edit the files under `internal/template/testdata/`
+directly, and to bring over a fix from the template, port it by hand and run
+`make e2e`.
+
+- `testdata/` keeps the skeleton out of the hexgen build, since its Go files
+  import the placeholder module path. `go.mod` is stored as `go.mod.tmpl`
+  because `go:embed` refuses a directory that is its own module.
+- Keep `.go` files valid, gofmt-clean Go. Use `.tmpl` only for `go.mod` and
+  files with `{{if .Auth}}` content. Files that contain a literal `{{` (the
+  GitHub workflows, `.mockery.yml`) stay plain.
 
 ## Development
 
 ```bash
-make test          # all tests, including the network e2e (-race)
-make test-short    # unit tests only (no network)
-make e2e           # end-to-end: fetch template, generate, build both variants
+make test          # all tests, including the e2e (-race)
+make test-short    # unit tests only (skips the e2e)
+make e2e           # generate both variants and check them
 make lint          # golangci-lint (standard linter set)
 make build         # build bin/hexgen
 make help          # list all targets
 ```
+
+The e2e generates the platform-only and `--auth` projects. It checks each for
+dropped paths and leftover template names, then runs `go mod tidy`,
+`go build`, `go vet`, `gofmt -l` and go-arch-lint inside it. When Docker is
+available it also runs the generated project's own `go test ./...`. It needs
+GOPROXY access for the generated projects' dependencies.

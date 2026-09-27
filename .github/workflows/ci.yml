@@ -55,8 +55,8 @@ jobs:
       - name: Unit tests
         run: go test -short -race -count=1 ./...
 
-      # Fetches the template from GitHub and generates+builds both skeleton
-      # variants. Network-dependent, and tracks the template's main branch, so a
-      # breaking template change can turn this red independently of generator code.
+      # Generates the platform-only and --auth projects from the embedded
+      # skeleton and builds, vets, arch-lints and tests each of them. Needs
+      # GOPROXY for the generated projects' dependencies.
       - name: End-to-end test
         run: go test -run TestEndToEnd -count=1 -timeout 5m .
