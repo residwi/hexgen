@@ -38,6 +38,23 @@ func TestEndToEnd(t *testing.T) {
 		assertMissing(t, out, "internal/features")
 		checkProject(t, out)
 	})
+
+	t.Run("auth", func(t *testing.T) {
+		out := generate(t, scaffold.Options{
+			Module:      "github.com/example/e2eauth",
+			ProjectName: "e2eauth",
+			Auth:        true,
+		}, template.Skeleton(), template.Auth())
+
+		entries, err := os.ReadDir(filepath.Join(out, "internal/features"))
+		require.NoError(t, err)
+		var features []string
+		for _, e := range entries {
+			features = append(features, e.Name())
+		}
+		assert.ElementsMatch(t, []string{"auth", "user"}, features)
+		checkProject(t, out)
+	})
 }
 
 // generate writes the project for opts and layers into a temp dir and returns

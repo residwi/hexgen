@@ -10,6 +10,10 @@ import (
 
 	"github.com/residwi/go-api-project-template/internal/app"
 	"github.com/residwi/go-api-project-template/internal/config"
+{{- if .Auth}}
+	authhttp "github.com/residwi/go-api-project-template/internal/features/auth/adapter/http"
+	userhttp "github.com/residwi/go-api-project-template/internal/features/user/adapter/http"
+{{- end}}
 	"github.com/residwi/go-api-project-template/internal/platform/web"
 	"github.com/residwi/go-api-project-template/internal/platform/web/middleware"
 )
@@ -25,6 +29,11 @@ func NewRouter(
 
 	router := web.NewRouter(mux)
 	router.HandleFunc("GET /health", healthHandler())
+{{- if .Auth}}
+
+	authMW := middleware.Auth(logger, deps.Auth)
+	adminMW := middleware.RequireRole(logger, "admin")
+{{- end}}
 
 	apiLimiter := middleware.RateLimit(
 		logger,
@@ -34,9 +43,40 @@ func NewRouter(
 		appCfg.App.APIRateLimit,
 		appCfg.App.APIRateWindow,
 	)
+{{if .Auth}}
+	authed := router.Group("/api", apiLimiter, authMW)
+	admin := authed.Group("/admin", adminMW)
 
+	const authLimiterBurst = 3
+	authLimiter := middleware.RateLimit(
+		logger,
+		cache,
+		"auth",
+		modCfg.Auth.RateLimit,
+		authLimiterBurst,
+		modCfg.Auth.RateWindow,
+	)
+	authPublic := router.Group("/api", authLimiter)
+
+	authHandler := authhttp.NewHandler(deps.Auth)
+	authPublic.HandleFunc("POST /auth/register", authHandler.Register)
+	authPublic.HandleFunc("POST /auth/login", authHandler.Login)
+	authPublic.HandleFunc("POST /auth/refresh", authHandler.Refresh)
+
+	userHandler := userhttp.NewHandler(deps.Users)
+	authed.HandleFunc("GET /users/me", userHandler.GetByID)
+	authed.HandleFunc("PUT /users/me", userHandler.UpdateProfile)
+
+	userAdminHandler := userhttp.NewAdminHandler(deps.Users)
+	admin.HandleFunc("GET /users", userAdminHandler.List)
+	admin.HandleFunc("GET /users/{id}", userAdminHandler.GetByID)
+	admin.HandleFunc("PUT /users/{id}", userAdminHandler.Update)
+	admin.HandleFunc("PUT /users/{id}/role", userAdminHandler.UpdateRole)
+	admin.HandleFunc("DELETE /users/{id}", userAdminHandler.Delete)
+{{- else}}
 	api := router.Group("/api", apiLimiter)
 	_ = api // hexgen feature mounts routes here
+{{- end}}
 
 	return web.Chain(
 		middleware.ClientIP(logger, appCfg.App.TrustedProxies),

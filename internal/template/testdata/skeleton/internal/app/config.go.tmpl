@@ -1,12 +1,25 @@
 package app
 
 import (
+{{- if .Auth}}
+	"fmt"
+
+{{end}}
 	"github.com/residwi/go-api-project-template/internal/config"
+{{- if .Auth}}
+	"github.com/residwi/go-api-project-template/internal/features/auth"
+{{- end}}
 	"github.com/residwi/go-api-project-template/internal/platform/database"
 )
 
 // Config holds each feature module's own env config.
+{{if .Auth -}}
+type Config struct {
+	Auth auth.Config
+}
+{{- else -}}
 type Config struct{}
+{{- end}}
 
 func PoolOptions(cfg config.Database) database.PostgresOptions {
 	return database.PostgresOptions{
@@ -26,5 +39,14 @@ func ReplicaPoolOptions(cfg config.Database) database.PostgresOptions {
 }
 
 func LoadConfig() (Config, error) {
+{{- if .Auth}}
+	authCfg, err := auth.LoadConfig()
+	if err != nil {
+		return Config{}, fmt.Errorf("loading auth config: %w", err)
+	}
+
+	return Config{Auth: authCfg}, nil
+{{- else}}
 	return Config{}, nil
+{{- end}}
 }

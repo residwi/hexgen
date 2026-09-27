@@ -4,13 +4,25 @@ import (
 	"log/slog"
 
 	"github.com/redis/go-redis/v9"
-
+{{if .Auth}}
+	"github.com/residwi/go-api-project-template/internal/features/auth"
+	authjwt "github.com/residwi/go-api-project-template/internal/features/auth/adapter/jwt"
+	"github.com/residwi/go-api-project-template/internal/features/user"
+	userpg "github.com/residwi/go-api-project-template/internal/features/user/adapter/postgres"
+{{- end}}
 	"github.com/residwi/go-api-project-template/internal/platform/database"
 )
 
 // Services holds one Service per feature module; server.NewRouter mounts
 // their handlers.
+{{if .Auth -}}
+type Services struct {
+	Users *user.Service
+	Auth  *auth.Service
+}
+{{- else -}}
 type Services struct{}
+{{- end}}
 
 // New builds every feature module's Service and wires the ports between them.
 func New(
@@ -19,5 +31,15 @@ func New(
 	cache *redis.Client,
 	logger *slog.Logger,
 ) (*Services, error) {
+{{- if .Auth}}
+	userMod := user.New(userpg.New(db))
+	authMod := auth.New(cfg.Auth, userMod, authjwt.New(cfg.Auth.Secret, cfg.Auth.Issuer), logger)
+
+	return &Services{
+		Users: userMod,
+		Auth:  authMod,
+	}, nil
+{{- else}}
 	return &Services{}, nil
+{{- end}}
 }

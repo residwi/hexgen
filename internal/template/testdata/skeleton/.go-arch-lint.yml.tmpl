@@ -48,6 +48,22 @@ components:
   # are private to that feature. One glob over features/*/domain/** would
   # put all of them in a single component and permit every cross-feature
   # reach, which is the rule this split exists to prevent.
+{{- if .Auth}}
+
+  ft-auth:
+    in: internal/features/auth
+  ft-auth-domain:
+    in: internal/features/auth/domain/**
+  ft-auth-adapter:
+    in: internal/features/auth/adapter/**
+
+  ft-user:
+    in: internal/features/user
+  ft-user-domain:
+    in: internal/features/user/domain/**
+  ft-user-adapter:
+    in: internal/features/user/adapter/**
+{{- end}}
 
 commonComponents:
   - errs
@@ -64,6 +80,26 @@ deps:
   cmd-api:
     mayDependOn:
       - server
+{{- if .Auth}}
+  ft-auth:
+    mayDependOn:
+      - ft-auth-domain
+      - ft-user
+  ft-auth-adapter:
+    mayDependOn:
+      - ft-auth
+      - ft-auth-domain
+      - web
+  ft-user:
+    mayDependOn:
+      - ft-user-domain
+  ft-user-adapter:
+    mayDependOn:
+      - database
+      - ft-user
+      - ft-user-domain
+      - web
+{{- end}}
   jobqueue:
     mayDependOn:
       - database
