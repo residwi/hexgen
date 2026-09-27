@@ -60,6 +60,22 @@ func TestTrees_ExcludeECommerceAndWorkerPaths(t *testing.T) {
 	}
 }
 
+func TestTrees_ContainNoECommerceName(t *testing.T) {
+	for name, tree := range map[string]fs.FS{"skeleton": Skeleton(), "auth": Auth()} {
+		err := fs.WalkDir(tree, ".", func(p string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return err
+			}
+			data, err := fs.ReadFile(tree, p)
+			require.NoError(t, err)
+			assert.Falsef(t, strings.Contains(strings.ToLower(string(data)), "ecommerce"),
+				"%s: %s should not mention ecommerce", name, p)
+			return nil
+		})
+		require.NoError(t, err)
+	}
+}
+
 func TestSkeleton_HasNoFeatures(t *testing.T) {
 	_, err := fs.Stat(Skeleton(), "internal/features")
 	assert.ErrorIs(t, err, fs.ErrNotExist)

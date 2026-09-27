@@ -11,7 +11,7 @@ import (
 
 type Config struct {
 	Secret          string        `envconfig:"JWT_SECRET"       required:"true"`
-	Issuer          string        `envconfig:"JWT_ISSUER"                       default:"ecommerce-api"`
+	Issuer          string        `envconfig:"JWT_ISSUER"                       default:"__PROJECT_NAME__"`
 	AccessTokenTTL  time.Duration `envconfig:"JWT_ACCESS_TTL"                   default:"15m"`
 	RefreshTokenTTL time.Duration `envconfig:"JWT_REFRESH_TTL"                  default:"168h"`
 	RateLimit       int           `envconfig:"AUTH_RATE_LIMIT"                  default:"10"`

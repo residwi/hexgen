@@ -73,7 +73,7 @@ func (t *TrustedProxies) Decode(value string) error {
 }
 
 type App struct {
-	Name            string         `envconfig:"APP_NAME"             default:"ecommerce-api"`
+	Name            string         `envconfig:"APP_NAME"             default:"__PROJECT_NAME__"`
 	Env             string         `envconfig:"APP_ENV"              default:"development"`
 	Port            int            `envconfig:"APP_PORT"             default:"8080"`
 	ReadTimeout     time.Duration  `envconfig:"APP_READ_TIMEOUT"     default:"15s"`
@@ -90,7 +90,7 @@ type Database struct {
 	Port                            int           `envconfig:"DB_PORT"                       default:"5432"`
 	User                            string        `envconfig:"DB_USER"                       default:"postgres"`
 	Password                        string        `envconfig:"DB_PASSWORD"                   default:"postgres"`
-	Name                            string        `envconfig:"DB_NAME"                       default:"ecommerce"`
+	Name                            string        `envconfig:"DB_NAME"                       default:"__PROJECT_NAME__"`
 	SSLMode                         string        `envconfig:"DB_SSLMODE"                    default:"disable"`
 	MaxConns                        int           `envconfig:"DB_MAX_CONNS"                  default:"25"`
 	MinConns                        int           `envconfig:"DB_MIN_CONNS"                  default:"5"`
