@@ -76,7 +76,7 @@ func nextSteps(o newOptions) string {
 	fmt.Fprintf(&b, "Created %s at %s\n\n", o.Name, dir)
 	b.WriteString("Next steps:\n")
 	fmt.Fprintf(&b, "  cd %s\n", dir)
-	b.WriteString("  make setup            # install dev tooling (mockery, goose, air, golangci-lint)\n")
+	b.WriteString("  make setup            # install dev tooling (goose, air, golangci-lint)\n")
 	b.WriteString("  cp .env.example .env  # then edit DATABASE_URL etc.\n")
 	b.WriteString("  make docker-up        # start postgres and redis\n")
 	b.WriteString("  make migrate-up\n")

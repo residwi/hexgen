@@ -205,7 +205,7 @@ deps: ## Download dependencies
 .PHONY: mocks
 mocks: ## Generate mocks
 	@echo "Generating mocks..."
-	mockery
+	go run github.com/vektra/mockery/v3@v3.8.0
 
 .PHONY: all
 all: fmt vet check-arch lint test build ## Run all checks and build

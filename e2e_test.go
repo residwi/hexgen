@@ -106,6 +106,7 @@ func checkProject(t *testing.T, dir string) {
 	run(t, dir, "go", "run", goArchLint, "check")
 	run(t, dir, "go", "run", golangciLint, "run", "./...")
 	run(t, dir, "make", "-n", "build")
+	assertMocksCurrent(t, dir)
 
 	if exec.Command("docker", "info").Run() != nil {
 		t.Log("docker unavailable: skipping go test in the generated project")
@@ -116,6 +117,38 @@ func checkProject(t *testing.T, dir string) {
 	removeTestContainers(t, filepath.Base(dir))
 	t.Cleanup(func() { removeTestContainers(t, filepath.Base(dir)) })
 	run(t, dir, "go", "test", "-count=1", "./...")
+}
+
+// assertMocksCurrent runs `make mocks` and fails if it changes, adds or drops
+// any mocks_test.go, so the committed mocks match what mockery generates from
+// the project's own .mockery.yml.
+func assertMocksCurrent(t *testing.T, dir string) {
+	t.Helper()
+	before := readMocks(t, dir)
+	run(t, dir, "make", "mocks")
+	assert.Equal(t, before, readMocks(t, dir), "make mocks changed the committed mocks")
+}
+
+func readMocks(t *testing.T, root string) map[string]string {
+	t.Helper()
+	mocks := map[string]string{}
+	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || d.Name() != "mocks_test.go" {
+			return err
+		}
+		data, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(root, p)
+		if err != nil {
+			return err
+		}
+		mocks[rel] = string(data)
+		return nil
+	})
+	require.NoError(t, err)
+	return mocks
 }
 
 // removeTestContainers deletes the generated project's testutil containers.
