@@ -67,8 +67,63 @@ db/migrations/      goose migrations
 4. Add `ft-<name>`, `ft-<name>-domain` and `ft-<name>-adapter` to the
    components and deps in `.go-arch-lint.yml`, then run `make check-arch`.
 5. Add its migration with `make migrate-create name=create_<name>s`.
+6. Run `make mocks` to generate its mocks, then `make test`.
+{{- if .Auth}}
 
-`hexgen feature <name>` will automate these steps.
+### Starting from `user`
+
+`internal/features/user` is the reference module. Copy it to
+`internal/features/<name>/`, then strip what only exists for auth.
+
+Keep, as the pattern for your module:
+
+- `domain/user.go`: the struct, cut down to `ID`, your fields, `CreatedAt` and
+  `UpdatedAt`.
+- `service.go`: `GetByID`, `ListAdmin`, `AdminUpdate` and `Delete`, each with
+  its tracing span. Add a `Create` for your fields.
+- `repository.go` and `adapter/postgres/repository.go`: `GetByID`, `ListAdmin`
+  (offset paging through `paging.OffsetPage`: a count query plus a page query)
+  and `scanUser`. Replace `UpdateGuarded` with a plain `Update`, make `Delete`
+  a plain `DELETE`, and add `Create`.
+- `adapter/http/admin_handler.go`, `admin_request.go`, `admin_response.go`: the
+  list, get, update and delete handlers and their consumer-side interface
+  (`UserManager`).
+- The tests for those methods. Regenerate mocks with `make mocks` instead of
+  editing `mocks_test.go`.
+
+Strip, because only auth needs it:
+
+- `contract.go` (`Profile`, `Credentials`, `NewUser`: the types auth's port
+  uses) and `toProfile`.
+- `GetByEmail`, `Create(NewUser)`, `GetProfile`, `UpdateProfile`, `UpdateRole`,
+  `UpdateGuarded`, `CountAdmins` and `IncrementTokenVersion`.
+- The requester and last-admin guards in `AdminUpdate` and `Delete`, and the
+  `requesterID` parameter.
+- `Email`, `PasswordHash`, `Role`, `Active`, `TokenVersion`, and the
+  `RoleUser`/`RoleAdmin` constants.
+- Soft delete: `DeletedAt` and every `deleted_at IS NULL`, unless you want
+  soft delete too.
+- `adapter/http/handler.go`, `request.go` and `response.go`: the `/users/me`
+  handler, which reads the caller from `request.RequireUser`.
+
+Rename the module's own names, not every `user`: `package user`,
+`features/user`, `domain.User`, `userpg`, `userhttp`, `UserManager`,
+`*user.Service`, the `Users` field, the `users` table and the `test_user`
+database. A blind find-and-replace also rewrites `request.RequireUser`,
+`UserID`, `identity` and `middleware.RequireRole`, which belong to the
+platform.
+
+For the wiring and the migration, copy what `user` has:
+`userMod := user.New(userpg.New(db))` and the `Users` field in
+`internal/app/app.go`, the `userAdminHandler` block in
+`internal/server/router.go`, the `ft-user` components and deps in
+`.go-arch-lint.yml`, and `db/migrations/*_create_users.sql`.
+{{- else}}
+
+For a module to copy from, generate a scratch project with `--auth`: its
+`internal/features/user` is a complete CRUD module with tests, and its README
+lists what to keep and strip.
+{{- end}}
 
 ## Common Commands
 

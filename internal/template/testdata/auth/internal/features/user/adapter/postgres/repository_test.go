@@ -21,10 +21,9 @@ import (
 	"__MODULE__/internal/testutil"
 )
 
-// This package shares test_user with every other user postgres access in
-// the module; see the registry comment in internal/testutil. It never
-// resets or truncates -- every row it touches is seeded here with a fresh
-// uuid.New() and cleaned up by name.
+// This package owns the test_user database. It never resets or truncates --
+// every row it touches is seeded here with a fresh uuid.New() and cleaned up
+// by name.
 
 var testPool *pgxpool.Pool
 
