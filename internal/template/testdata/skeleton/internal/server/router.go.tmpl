@@ -18,12 +18,14 @@ import (
 	"__MODULE__/internal/platform/web/middleware"
 )
 
+// NewRouter mounts every route and the middleware chain. A parameter no route
+// uses yet is blank; name it when a module's routes need it.
 func NewRouter(
 	appCfg *config.Settings,
-	modCfg app.Config,
+	{{if .Auth}}modCfg{{else}}_{{end}} app.Config,
 	cache *redis.Client,
 	logger *slog.Logger,
-	deps *app.Services,
+	{{if .Auth}}deps{{else}}_{{end}} *app.Services,
 ) http.Handler {
 	mux := http.NewServeMux()
 

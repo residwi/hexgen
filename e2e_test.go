@@ -15,15 +15,19 @@ import (
 	"github.com/residwi/go-project-generator/internal/template"
 )
 
-// goArchLint is run with `go run` so neither CI nor a local machine needs it
-// installed.
-const goArchLint = "github.com/fe3dback/go-arch-lint@v1.19.0"
+// The generated project's linters run with `go run`, so neither CI nor a local
+// machine needs them installed. golangciLint enforces the project's own
+// .golangci.yml.
+const (
+	goArchLint   = "github.com/fe3dback/go-arch-lint@v1.19.0"
+	golangciLint = "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0"
+)
 
 // TestEndToEnd generates each project variant from the embedded skeleton and
 // checks it: no leftover template names or dropped paths, then `go mod tidy`,
-// `go build`, `go vet`, `gofmt -l` and go-arch-lint, and `go test` when Docker
-// is available. Requires the Go toolchain and GOPROXY access for the generated
-// project's dependencies. Skipped under -short.
+// `go build`, `go vet`, `gofmt -l`, go-arch-lint and golangci-lint, and
+// `go test` when Docker is available. Requires the Go toolchain and GOPROXY
+// access for the generated project's dependencies. Skipped under -short.
 func TestEndToEnd(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping build e2e test in -short mode")
@@ -100,6 +104,7 @@ func checkProject(t *testing.T, dir string) {
 	run(t, dir, "go", "vet", "./...")
 	gofmtClean(t, dir)
 	run(t, dir, "go", "run", goArchLint, "check")
+	run(t, dir, "go", "run", golangciLint, "run", "./...")
 	run(t, dir, "make", "-n", "build")
 
 	if exec.Command("docker", "info").Run() != nil {

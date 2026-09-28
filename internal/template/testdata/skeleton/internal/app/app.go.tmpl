@@ -25,11 +25,12 @@ type Services struct{}
 {{- end}}
 
 // New builds every feature module's Service and wires the ports between them.
+// A parameter no module uses yet is blank; name it when a module needs it.
 func New(
-	cfg Config,
-	db database.DB,
-	cache *redis.Client,
-	logger *slog.Logger,
+	{{if .Auth}}cfg{{else}}_{{end}} Config,
+	{{if .Auth}}db{{else}}_{{end}} database.DB,
+	_ *redis.Client,
+	{{if .Auth}}logger{{else}}_{{end}} *slog.Logger,
 ) (*Services, error) {
 {{- if .Auth}}
 	userMod := user.New(userpg.New(db))
