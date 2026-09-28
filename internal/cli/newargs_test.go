@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -30,6 +31,20 @@ func TestValidateNewOptions(t *testing.T) {
 	assert.Error(t, validateNewOptions(newOptions{Name: "x", Module: "bad module"}))
 	assert.Error(t, validateNewOptions(newOptions{Name: "../evil", Module: "github.com/me/x"}))
 	assert.Error(t, validateNewOptions(newOptions{Name: "a/b", Module: "github.com/me/x"}))
+}
+
+func TestValidateNewOptions_ProjectName(t *testing.T) {
+	// The name becomes the Postgres database, Docker container and image names,
+	// so it must satisfy all three.
+	for _, name := range []string{"myapp", "my-app", "my_app", "app2", strings.Repeat("a", 63)} {
+		assert.NoErrorf(t, validateNewOptions(newOptions{Name: name, Module: "github.com/me/x"}), "%q", name)
+	}
+	for _, name := range []string{
+		"MyApp", "my app", "1app", "app-", "app_", "-app", "my.app", "a/b", "../evil", ".",
+		strings.Repeat("a", 64),
+	} {
+		assert.Errorf(t, validateNewOptions(newOptions{Name: name, Module: "github.com/me/x"}), "%q", name)
+	}
 }
 
 func TestUsageNamesHexgen(t *testing.T) {

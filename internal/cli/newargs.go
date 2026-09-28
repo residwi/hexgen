@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -16,6 +17,13 @@ type newOptions struct {
 	Check  bool
 	Auth   bool
 }
+
+// projectName keeps the name valid as a Postgres database name (at most 63
+// bytes) and as Docker container and image names (lowercase, no leading or
+// trailing separator), all of which the generated project derives from it.
+var projectName = regexp.MustCompile(`^[a-z]([a-z0-9_-]*[a-z0-9])?$`)
+
+const maxProjectName = 63
 
 func parseNewArgs(args []string) (newOptions, error) {
 	fs := flag.NewFlagSet("new", flag.ContinueOnError)
@@ -45,8 +53,10 @@ func validateNewOptions(o newOptions) error {
 	if o.Name == "" {
 		return errors.New("project name is required (usage: hexgen new <name> --module <path>)")
 	}
-	if strings.ContainsAny(o.Name, `/\`) || o.Name == "." || o.Name == ".." || strings.HasPrefix(o.Name, "-") {
-		return errors.New(`project name must be a single path segment (no '/', '\', '.', '..', or leading '-')`)
+	if !projectName.MatchString(o.Name) || len(o.Name) > maxProjectName {
+		return fmt.Errorf("project name %q must be lowercase letters, digits, '-' or '_', start with a letter, "+
+			"end with a letter or digit, and be at most %d characters: it names the database and Docker containers",
+			o.Name, maxProjectName)
 	}
 	if o.Module == "" {
 		return errors.New("--module is required (e.g. --module github.com/me/myapp)")

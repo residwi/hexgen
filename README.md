@@ -39,7 +39,10 @@ hexgen new myapp --module github.com/me/myapp
 hexgen new myapp --module github.com/me/myapp --auth
 ```
 
-Run `hexgen new` with no name or module in a terminal to be prompted for them.
+`<name>` must be lowercase letters, digits, `-` or `_`, start with a letter and
+end with a letter or digit (at most 63 characters): it becomes the database
+name and the Docker container and image names. Run `hexgen new` with no name or
+module in a terminal to be prompted for them.
 
 ### Flags for `new`
 
