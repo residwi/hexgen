@@ -91,11 +91,11 @@ func collect(fsys fs.FS, out map[string]File, opts Options) error {
 func renderTemplate(name string, data []byte, opts Options) ([]byte, error) {
 	t, err := template.New(name).Parse(string(data))
 	if err != nil {
-		return nil, fmt.Errorf("parsing override template %s: %w", name, err)
+		return nil, fmt.Errorf("parsing template %s: %w", name, err)
 	}
 	var buf bytes.Buffer
 	if err := t.Execute(&buf, opts); err != nil {
-		return nil, fmt.Errorf("executing override template %s: %w", name, err)
+		return nil, fmt.Errorf("executing template %s: %w", name, err)
 	}
 	return buf.Bytes(), nil
 }

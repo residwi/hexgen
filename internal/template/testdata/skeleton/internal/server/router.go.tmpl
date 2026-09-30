@@ -77,7 +77,7 @@ func NewRouter(
 	admin.HandleFunc("DELETE /users/{id}", userAdminHandler.Delete)
 {{- else}}
 	api := router.Group("/api", apiLimiter)
-	_ = api // hexgen feature mounts routes here
+	_ = api // mount feature routes here
 {{- end}}
 
 	return web.Chain(
