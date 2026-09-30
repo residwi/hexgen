@@ -69,10 +69,13 @@ func TestNextSteps(t *testing.T) {
 	}
 	assert.NotContains(t, got, "go mod tidy", "hexgen new runs go mod tidy itself")
 	assert.NotContains(t, got, "make seed", "platform-only projects have no seed data")
+	assert.NotContains(t, got, "DATABASE_URL", ".env configures the database through DB_*")
+	assert.NotContains(t, got, "JWT_SECRET")
 }
 
 func TestNextSteps_Auth(t *testing.T) {
 	got := nextSteps(newOptions{Name: "myapp", Output: "./myapp", Auth: true})
 	assert.Contains(t, got, "make seed")
 	assert.Contains(t, got, "admin@example.com / admin123456")
+	assert.Contains(t, got, "JWT_SECRET", "the API refuses to boot with the placeholder secret")
 }

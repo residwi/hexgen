@@ -76,9 +76,11 @@ func nextSteps(o newOptions) string {
 	fmt.Fprintf(&b, "Created %s at %s\n\n", o.Name, dir)
 	b.WriteString("Next steps:\n")
 	fmt.Fprintf(&b, "  cd %s\n", dir)
-	b.WriteString("  make setup            # install dev tooling (goose, air, golangci-lint)\n")
-	b.WriteString("  cp .env.example .env  # then edit DATABASE_URL etc.\n")
-	b.WriteString("  make docker-up        # start postgres and redis\n")
+	b.WriteString("  make setup            # install dev tooling (goose, air, golangci-lint) and create .env\n")
+	if o.Auth {
+		b.WriteString("  # set JWT_SECRET in .env first (openssl rand -hex 32): the API refuses the placeholder\n")
+	}
+	b.WriteString("  make docker-up        # start postgres and redis (DB_* and REDIS_* in .env)\n")
 	b.WriteString("  make migrate-up\n")
 	if o.Auth {
 		b.WriteString("  make seed             # seeds admin user: admin@example.com / admin123456  (change this!)\n")
