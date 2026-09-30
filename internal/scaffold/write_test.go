@@ -29,6 +29,24 @@ func TestWrite_RefusesNonEmptyDir(t *testing.T) {
 	assert.NoError(t, Write(dest, map[string]File{"a": {Data: []byte("b")}}, true))
 }
 
+// A dest like missing/../existing fails the OS lookup (missing does not
+// exist) but cleans to existing, so the emptiness check must use the same
+// cleaned path the files are written to.
+func TestWrite_RefusesNonEmptyDirReachedThroughDotDot(t *testing.T) {
+	root := t.TempDir()
+	existing := filepath.Join(root, "existing")
+	require.NoError(t, os.Mkdir(existing, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(existing, "keep.txt"), []byte("x"), 0o644))
+
+	dest := filepath.Join(root, "missing") + string(filepath.Separator) + ".." +
+		string(filepath.Separator) + "existing"
+	err := Write(dest, map[string]File{"a": {Data: []byte("b")}}, false)
+
+	require.Error(t, err)
+	_, statErr := os.Stat(filepath.Join(existing, "a"))
+	assert.ErrorIs(t, statErr, os.ErrNotExist, "nothing may be written into the non-empty directory")
+}
+
 func TestWrite_RejectsEscapingKey(t *testing.T) {
 	dest := t.TempDir()
 	err := Write(dest, map[string]File{"../escape.txt": {Data: []byte("x")}}, true)

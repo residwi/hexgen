@@ -14,14 +14,16 @@ import (
 // and force is false, it returns an error without writing anything. Keys that
 // would resolve outside dest are rejected.
 func Write(dest string, files map[string]File, force bool) error {
-	empty, err := dirEmptyOrAbsent(dest)
+	// Check the same cleaned path the files are written to: a raw dest like
+	// missing/../existing fails the OS lookup yet cleans to an existing dir.
+	cleanDest := filepath.Clean(dest)
+	empty, err := dirEmptyOrAbsent(cleanDest)
 	if err != nil {
 		return err
 	}
 	if !empty && !force {
 		return fmt.Errorf("destination %q is not empty (use --force to overwrite)", dest)
 	}
-	cleanDest := filepath.Clean(dest)
 	for p, f := range files {
 		full := filepath.Join(cleanDest, filepath.FromSlash(p))
 		if !pathutil.WithinDir(cleanDest, full) {
