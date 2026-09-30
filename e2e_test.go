@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/residwi/go-project-generator/internal/cli"
 	"github.com/residwi/go-project-generator/internal/scaffold"
-	"github.com/residwi/go-project-generator/internal/template"
 )
 
 // The generated project's linters run with `go run`, so neither CI nor a local
@@ -23,7 +23,7 @@ const (
 	golangciLint = "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0"
 )
 
-// TestEndToEnd generates each project variant from the embedded skeleton and
+// TestEndToEnd generates each project variant with `hexgen new` and
 // checks it: no leftover template names or dropped paths, then `go mod tidy`,
 // `go build`, `go vet`, `gofmt -l`, go-arch-lint and golangci-lint, and
 // `go test` when Docker is available. Requires the Go toolchain and GOPROXY
@@ -34,10 +34,7 @@ func TestEndToEnd(t *testing.T) {
 	}
 
 	t.Run("platform only", func(t *testing.T) {
-		out := generate(t, scaffold.Options{
-			Module:      "github.com/example/e2eapp",
-			ProjectName: "e2eapp",
-		}, template.Skeleton())
+		out := generate(t, "e2eapp", "github.com/example/e2eapp")
 
 		assertMissing(t, out, "internal/features")
 		assert.NotContains(t, readFile(t, out, "Makefile"), "\nseed:", "no seed data without auth")
@@ -46,11 +43,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("auth", func(t *testing.T) {
-		out := generate(t, scaffold.Options{
-			Module:      "github.com/example/e2eauth",
-			ProjectName: "e2eauth",
-			Auth:        true,
-		}, template.Skeleton(), template.Auth())
+		out := generate(t, "e2eauth", "github.com/example/e2eauth", "--auth")
 
 		entries, err := os.ReadDir(filepath.Join(out, "internal/features"))
 		require.NoError(t, err)
@@ -66,15 +59,13 @@ func TestEndToEnd(t *testing.T) {
 	})
 }
 
-// generate writes the project for opts and layers into a temp dir and returns
-// its path.
-func generate(t *testing.T, opts scaffold.Options, layers ...fs.FS) string {
+// generate runs `hexgen new` through the CLI into a temp dir and returns the
+// project's path, so e2e also covers how flags choose layers and options.
+func generate(t *testing.T, name, module string, flags ...string) string {
 	t.Helper()
-	files, err := scaffold.Generate(opts, layers...)
-	require.NoError(t, err, "generate")
-
-	out := filepath.Join(t.TempDir(), opts.ProjectName)
-	require.NoError(t, scaffold.Write(out, files, false), "write")
+	out := filepath.Join(t.TempDir(), name)
+	args := append([]string{"new", name, "--module", module, "--output", out}, flags...)
+	require.Equalf(t, 0, cli.Run(args), "hexgen %v", args)
 	return out
 }
 
