@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/residwi/go-project-generator/internal/cli"
+	"github.com/residwi/hexgen/internal/cli"
 )
 
 func main() {

@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/residwi/go-project-generator/internal/pathutil"
+	"github.com/residwi/hexgen/internal/pathutil"
 )
 
 // Write writes the generated files under dest. If dest exists and is non-empty

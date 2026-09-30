@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/residwi/go-project-generator/internal/pathutil"
+	"github.com/residwi/hexgen/internal/pathutil"
 	"github.com/stretchr/testify/assert"
 )
 

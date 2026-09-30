@@ -1,4 +1,4 @@
-module github.com/residwi/go-project-generator
+module github.com/residwi/hexgen
 
 go 1.27.0
 

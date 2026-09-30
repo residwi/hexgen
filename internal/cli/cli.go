@@ -8,9 +8,9 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/residwi/go-project-generator/internal/prompt"
-	"github.com/residwi/go-project-generator/internal/scaffold"
-	"github.com/residwi/go-project-generator/internal/template"
+	"github.com/residwi/hexgen/internal/prompt"
+	"github.com/residwi/hexgen/internal/scaffold"
+	"github.com/residwi/hexgen/internal/template"
 )
 
 const version = "0.1.0-dev"

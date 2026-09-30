@@ -1,4 +1,4 @@
-# go-project-generator (`hexgen`)
+# hexgen
 
 A single-binary CLI that writes a new Go API project in the shape of
 [go-api-project-template](https://github.com/residwi/go-api-project-template):
@@ -24,7 +24,7 @@ The module path is rewritten to yours. The project name becomes the default
 ## Install
 
 ```bash
-go install github.com/residwi/go-project-generator/cmd/hexgen@latest
+go install github.com/residwi/hexgen/cmd/hexgen@latest
 ```
 
 Or build from source with `make build`, which outputs `bin/hexgen`.

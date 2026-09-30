@@ -1,4 +1,4 @@
-# Makefile for go-project-generator (the `hexgen` CLI).
+# Makefile for hexgen.
 
 BINARY := hexgen
 BIN_DIR := bin

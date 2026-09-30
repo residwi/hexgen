@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/residwi/go-project-generator/internal/cli"
-	"github.com/residwi/go-project-generator/internal/scaffold"
+	"github.com/residwi/hexgen/internal/cli"
+	"github.com/residwi/hexgen/internal/scaffold"
 )
 
 // The generated project's linters run with `go run`, so neither CI nor a local
