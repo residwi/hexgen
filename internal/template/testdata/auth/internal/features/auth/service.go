@@ -8,12 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"runtime"
 	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
-	"golang.org/x/crypto/bcrypt"
 
 	"__MODULE__/internal/features/auth/domain"
 	"__MODULE__/internal/features/user"
@@ -24,27 +24,29 @@ import (
 
 type Service struct {
 	users      UserDirectory
-	dummyHash  []byte
-	bcryptCost int
+	dummyHash  string
 	tokens     Tokens
 	accessTTL  time.Duration
 	refreshTTL time.Duration
 	logger     *slog.Logger
 	logKey     []byte
 	tracer     trace.Tracer
+	// hashSlots bounds concurrent Argon2id work at GOMAXPROCS: every hash holds 19 MiB,
+	// and a slot beyond the core count adds memory without adding throughput.
+	hashSlots chan struct{}
 }
 
 func New(cfg Config, users UserDirectory, tokens Tokens, logger *slog.Logger) *Service {
 	s := &Service{
 		users:      users,
+		dummyHash:  hashPassword(dummyPassword),
 		tokens:     tokens,
 		logger:     logger,
-		bcryptCost: cfg.BcryptCost,
+		hashSlots:  make(chan struct{}, runtime.GOMAXPROCS(0)),
 		accessTTL:  cfg.AccessTokenTTL,
 		refreshTTL: cfg.RefreshTokenTTL,
 		tracer:     otel.Tracer("__MODULE__/internal/features/auth"),
 	}
-	s.dummyHash, _ = bcrypt.GenerateFromPassword([]byte(dummyPassword), cfg.BcryptCost)
 	keyMAC := hmac.New(sha256.New, []byte(cfg.Secret))
 	keyMAC.Write([]byte("auth.login-log-pseudonym"))
 	s.logKey = keyMAC.Sum(nil)
@@ -58,15 +60,30 @@ func (s *Service) Login(ctx context.Context, email, password string) (_ *TokenPa
 
 	creds, err := s.users.GetByEmail(ctx, email)
 	if err != nil {
-		_ = bcrypt.CompareHashAndPassword(s.dummyHash, []byte(password))
+		if err = s.withHashSlot(ctx, func() { _, _ = verifyPassword(s.dummyHash, password) }); err != nil {
+			return nil, err
+		}
 		s.logger.WarnContext(ctx, "login failed",
 			slog.String("email_pseudonym", s.emailPseudonym(email)), slog.String("reason", "unknown_email"))
 		return nil, ErrInvalidCredentials
 	}
 
-	// bcrypt must run before the Active check: skipping it for inactive accounts
+	// The password check must run before the Active check: skipping it for inactive accounts
 	// leaked account state via a faster, distinct response (CWE-204 enumeration).
-	if bcrypt.CompareHashAndPassword([]byte(creds.PasswordHash), []byte(password)) != nil {
+	var matches bool
+	var hashErr error
+	err = s.withHashSlot(ctx, func() { matches, hashErr = verifyPassword(creds.PasswordHash, password) })
+	if err != nil {
+		return nil, err
+	}
+
+	if hashErr != nil {
+		s.logger.WarnContext(ctx, "login failed",
+			slog.String("user_id", creds.ID.String()), slog.String("reason", "unsupported_hash"))
+		return nil, ErrInvalidCredentials
+	}
+
+	if !matches {
 		s.logger.WarnContext(ctx, "login failed",
 			slog.String("user_id", creds.ID.String()), slog.String("reason", "bad_password"))
 		return nil, ErrInvalidCredentials
@@ -94,18 +111,14 @@ func (s *Service) Register(
 	defer span.End()
 	defer func() { tracing.Record(span, err) }()
 
-	if len(password) > maxPasswordBytes {
-		return nil, fmt.Errorf("%w: password must not exceed %d bytes", errs.ErrBadRequest, maxPasswordBytes)
-	}
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), s.bcryptCost)
-	if err != nil {
-		return nil, fmt.Errorf("hashing password: %w", err)
+	var hash string
+	if err = s.withHashSlot(ctx, func() { hash = hashPassword(password) }); err != nil {
+		return nil, err
 	}
 
 	user, err := s.users.Create(ctx, user.NewUser{
 		Email:        email,
-		PasswordHash: string(hash),
+		PasswordHash: hash,
 		FirstName:    firstName,
 		LastName:     lastName,
 	})
@@ -197,16 +210,24 @@ func (s *Service) activeProfile(ctx context.Context, claims domain.Claims) (user
 	return u, nil
 }
 
+func (s *Service) withHashSlot(ctx context.Context, fn func()) error {
+	select {
+	case s.hashSlots <- struct{}{}:
+	case <-ctx.Done():
+		return fmt.Errorf("waiting for a hash slot: %w", ctx.Err())
+	}
+	defer func() { <-s.hashSlots }()
+
+	fn()
+	return nil
+}
+
 func (s *Service) emailPseudonym(email string) string {
 	mac := hmac.New(sha256.New, s.logKey)
 	mac.Write([]byte(strings.ToLower(strings.TrimSpace(email))))
 	return hex.EncodeToString(mac.Sum(nil)[:8])
 }
 
-// dummyPassword is hashed once per cost to give the unknown-email login path
-// roughly the same latency as a real bcrypt comparison.
+// dummyPassword is hashed once in New so the unknown-email login path costs the
+// same as a real Argon2id comparison.
 const dummyPassword = "invalid-user-timing-equalizer"
-
-// maxPasswordBytes is bcrypt's hard input limit; inputs longer than this error
-// in GenerateFromPassword. validator's max=72 counts runes, so we re-check bytes.
-const maxPasswordBytes = 72
