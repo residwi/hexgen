@@ -70,11 +70,29 @@ module in a terminal to be prompted for them.
 
 ## The skeleton
 
-The skeleton was copied once from go-api-project-template at
-`05f84b315978ec5d4245b216fd9151a33fabe83e`. hexgen owns it from then on, and
-nothing syncs it back. Edit the files under `internal/template/testdata/`
-directly, and to bring over a fix from the template, port it by hand and run
-`make e2e`.
+The skeleton started as a copy of go-api-project-template, and hexgen owns it:
+its files carry no template names or shop words, and some (migrations, README,
+Makefile) are reshaped. Edit the files under `internal/template/testdata/`
+directly. `internal/template/UPSTREAM` records the template commit the skeleton
+was last synced to.
+
+### Syncing from the template
+
+`make sync-template` (or `make sync-template TEMPLATE=<checkout>`, default
+`../go-api-project-template`) lists the template commits since `UPSTREAM` and
+applies each changed file's diff to the skeleton's copy, with the template's
+names neutralized. It copies `go.mod` and `go.sum`, and moves `UPSTREAM` to the
+template's HEAD. It reports files that hexgen has no copy of (shop modules,
+docs) as skipped. It refuses to run while hexgen has uncommitted changes.
+
+After a sync:
+
+1. Port each reported `.rej` hunk by hand, then delete the `.rej` file. A hunk
+   that does not apply to the skeleton (such as a README row it lacks) needs
+   no port.
+2. Run `make test`. The guard test fails on leftover `.rej` files or template
+   names, and the e2e builds and tests both generated variants.
+3. Commit, e.g. `chore(skeleton): sync go-api-project-template to <sha>`.
 
 ## Development
 

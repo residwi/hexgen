@@ -72,6 +72,7 @@ func TestTrees_ContainNoTemplateContext(t *testing.T) {
 			if err != nil || d.IsDir() {
 				return err
 			}
+			assert.Falsef(t, strings.HasSuffix(p, ".rej"), "%s: %s is a hunk scripts/sync-template.sh left to port", name, p)
 			data, err := fs.ReadFile(tree, p)
 			require.NoError(t, err)
 			s := strings.ReplaceAll(string(data), "actions/checkout", "")

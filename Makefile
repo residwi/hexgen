@@ -55,6 +55,10 @@ lint: ## Run golangci-lint (installs it if missing)
 		golangci-lint run ./...; \
 	fi
 
+.PHONY: sync-template
+sync-template: ## Port go-api-project-template changes since the last sync (TEMPLATE=<checkout>)
+	scripts/sync-template.sh $(TEMPLATE)
+
 .PHONY: tidy
 tidy: ## Tidy go modules
 	go mod tidy
