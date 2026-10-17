@@ -30,7 +30,7 @@ func NewRouter(
 	mux := http.NewServeMux()
 
 	router := web.NewRouter(mux, logger)
-	router.Handle("GET /health", healthHandler())
+	router.HandleFunc("GET /health", healthHandler)
 {{- if .Auth}}
 
 	authMW := middleware.Auth(logger, deps.Auth)
@@ -102,10 +102,9 @@ func NewRouter(
 	)(mux)
 }
 
-func healthHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
-	}
+func healthHandler(w http.ResponseWriter, _ *http.Request) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
+	return nil
 }
