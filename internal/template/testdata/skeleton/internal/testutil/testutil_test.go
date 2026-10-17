@@ -158,6 +158,24 @@ func TestMustStartPostgresAppliesRiverSchema(t *testing.T) {
 	assert.True(t, exists, "river_job must exist: the worker cannot run without River's schema")
 }
 
+func TestMustStartPostgresDefaultsEveryUUIDColumnToV7(t *testing.T) {
+	t.Parallel()
+
+	pool, cleanup := testutil.MustStartPostgres("test_testutil")
+	t.Cleanup(cleanup)
+
+	rows, err := pool.Query(t.Context(),
+		`SELECT DISTINCT column_default FROM information_schema.columns
+		WHERE table_schema = 'public' AND data_type = 'uuid' AND column_default IS NOT NULL`,
+	)
+	require.NoError(t, err)
+	defaults, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	require.NoError(t, err)
+
+	// Subset, not Equal: a project with no UUID columns yet has no defaults.
+	assert.Subset(t, []string{"uuidv7()"}, defaults)
+}
+
 func TestResetDBSurvivesASecondMustStartPostgresCall(t *testing.T) {
 	pool, cleanup := testutil.MustStartPostgres("test_testutil")
 	t.Cleanup(cleanup)
