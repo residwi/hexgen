@@ -2,7 +2,9 @@ package middleware
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -70,21 +72,35 @@ func TestAuth(t *testing.T) {
 
 	// Which rules reject a caller belongs to whichever Authenticator is wired in;
 	// this layer only has to refuse the request and keep the error's status.
-	t.Run("an unauthorized rejection is a 401 and never reaches the handler", func(t *testing.T) {
+	t.Run("an unauthorized rejection is a 401, never reaches the handler and warns", func(t *testing.T) {
+		var buf bytes.Buffer
 		authenticator := NewMockAuthenticator(t)
 		authenticator.EXPECT().Authenticate(mock.Anything, "tok").
 			Return(identity.Identity{}, fmt.Errorf("%w: token has been revoked", errs.ErrUnauthorized))
 
-		handler := Auth(testLogger(), authenticator)(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
-			t.Fatal("handler should not be called")
-		}))
+		handler := Auth(
+			recordingLogger(&buf),
+			authenticator,
+		)(
+			http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+				t.Fatal("handler should not be called")
+			}),
+		)
 
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/data", nil)
 		req.Header.Set("Authorization", "Bearer tok")
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
 
 		assert.Equal(t, http.StatusUnauthorized, rec.Code)
+		var entry map[string]any
+		require.NoError(t, json.Unmarshal(buf.Bytes(), &entry))
+		assert.Equal(t, map[string]any{
+			"level":  "WARN",
+			"msg":    "authentication failed",
+			"reason": "invalid_token",
+			"path":   "/api/data",
+		}, entry)
 	})
 
 	t.Run("a failure that is not an auth rejection is not downgraded to 401", func(t *testing.T) {
@@ -102,6 +118,68 @@ func TestAuth(t *testing.T) {
 		handler.ServeHTTP(rec, req)
 
 		assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	})
+
+	t.Run("an unexpected failure logs its cause at error, not as an invalid token", func(t *testing.T) {
+		var buf bytes.Buffer
+		authenticator := NewMockAuthenticator(t)
+		authenticator.EXPECT().Authenticate(mock.Anything, "tok").
+			Return(identity.Identity{}, errors.New("dial tcp 10.0.0.5:5432: connection refused"))
+
+		handler := Auth(
+			recordingLogger(&buf),
+			authenticator,
+		)(
+			http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+				t.Fatal("handler should not be called")
+			}),
+		)
+
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Header.Set("Authorization", "Bearer tok")
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusInternalServerError, rec.Code)
+		var entry map[string]any
+		require.NoError(t, json.Unmarshal(buf.Bytes(), &entry))
+		assert.Equal(t, map[string]any{
+			"level": "ERROR",
+			"msg":   "unexpected error",
+			"error": "dial tcp 10.0.0.5:5432: connection refused",
+		}, entry)
+	})
+
+	t.Run("a request the client cancelled while authenticating is logged at debug", func(t *testing.T) {
+		var buf bytes.Buffer
+		authenticator := NewMockAuthenticator(t)
+		authenticator.EXPECT().Authenticate(mock.Anything, "tok").
+			Return(identity.Identity{}, fmt.Errorf("loading profile: %w", context.Canceled))
+
+		handler := Auth(
+			recordingLogger(&buf),
+			authenticator,
+		)(
+			http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+				t.Fatal("handler should not be called")
+			}),
+		)
+
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+		req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/", nil)
+		req.Header.Set("Authorization", "Bearer tok")
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusInternalServerError, rec.Code)
+		var entry map[string]any
+		require.NoError(t, json.Unmarshal(buf.Bytes(), &entry))
+		assert.Equal(t, map[string]any{
+			"level": "DEBUG",
+			"msg":   "request cancelled",
+			"error": "loading profile: context canceled",
+		}, entry)
 	})
 
 	t.Run("success puts the identity in the request context", func(t *testing.T) {
@@ -155,4 +233,16 @@ func TestAuth(t *testing.T) {
 		require.NoError(t, json.Unmarshal(buf.Bytes(), &entry))
 		assert.Equal(t, userID.String(), entry["user_id"])
 	})
+}
+
+func recordingLogger(buf *bytes.Buffer) *slog.Logger {
+	return slog.New(slog.NewJSONHandler(buf, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			if len(groups) == 0 && a.Key == slog.TimeKey {
+				return slog.Attr{}
+			}
+			return a
+		},
+	}))
 }

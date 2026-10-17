@@ -2,10 +2,12 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
 
+	"__MODULE__/internal/platform/errs"
 	"__MODULE__/internal/platform/identity"
 	"__MODULE__/internal/platform/logger"
 	"__MODULE__/internal/platform/web/response"
@@ -36,8 +38,15 @@ func Auth(log *slog.Logger, authenticator Authenticator) func(http.Handler) http
 
 			id, err := authenticator.Authenticate(r.Context(), parts[1])
 			if err != nil {
-				log.WarnContext(r.Context(), "authentication failed",
-					slog.String("reason", "invalid_token"), slog.String("path", r.URL.Path))
+				switch {
+				case errors.Is(err, context.Canceled) && r.Context().Err() != nil:
+					log.DebugContext(r.Context(), "request cancelled", slog.String("error", err.Error()))
+				case errs.Kind(err) == nil:
+					log.ErrorContext(r.Context(), "unexpected error", slog.String("error", err.Error()))
+				default:
+					log.WarnContext(r.Context(), "authentication failed",
+						slog.String("reason", "invalid_token"), slog.String("path", r.URL.Path))
+				}
 				response.HandleErr(w, err)
 				return
 			}

@@ -99,22 +99,6 @@ func TestErr(t *testing.T) {
 	}, body.Error)
 }
 
-func TestBadRequest(t *testing.T) {
-	t.Parallel()
-
-	w := httptest.NewRecorder()
-	BadRequest(w, "invalid input")
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestNotFound(t *testing.T) {
-	t.Parallel()
-
-	w := httptest.NewRecorder()
-	NotFound(w, "resource not found")
-	assert.Equal(t, http.StatusNotFound, w.Code)
-}
-
 func TestUnauthorized(t *testing.T) {
 	t.Parallel()
 
@@ -131,14 +115,6 @@ func TestForbidden(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
-func TestConflict(t *testing.T) {
-	t.Parallel()
-
-	w := httptest.NewRecorder()
-	Conflict(w, "already exists")
-	assert.Equal(t, http.StatusConflict, w.Code)
-}
-
 func TestTooManyRequests(t *testing.T) {
 	t.Parallel()
 
@@ -153,19 +129,4 @@ func TestInternalError(t *testing.T) {
 	w := httptest.NewRecorder()
 	InternalError(w)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func TestValidationErr(t *testing.T) {
-	t.Parallel()
-
-	w := httptest.NewRecorder()
-	ValidationErr(w, map[string]any{"email": "required"})
-	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
-
-	var body Response
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	assert.Equal(t, &Error{
-		Message: "validation failed",
-		Details: map[string]any{"email": "required"},
-	}, body.Error)
 }

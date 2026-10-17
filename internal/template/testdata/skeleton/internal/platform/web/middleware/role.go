@@ -6,15 +6,16 @@ import (
 	"net/http"
 
 	"__MODULE__/internal/platform/identity"
+	"__MODULE__/internal/platform/web/request"
 	"__MODULE__/internal/platform/web/response"
 )
 
 func Require(log *slog.Logger, denied string, pred func(identity.Identity) bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			id, ok := identity.FromContext(r.Context())
-			if !ok {
-				response.Unauthorized(w, "authentication required")
+			id, err := request.RequireUser(r)
+			if err != nil {
+				response.HandleErr(w, err)
 				return
 			}
 

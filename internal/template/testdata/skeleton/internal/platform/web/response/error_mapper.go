@@ -1,12 +1,30 @@
 package response
 
 import (
+	"errors"
 	"net/http"
 
 	"__MODULE__/internal/platform/errs"
 )
 
+type ValidationError struct {
+	Details map[string]any
+}
+
+func (e *ValidationError) Error() string {
+	return "validation failed"
+}
+
+func (e *ValidationError) Unwrap() error {
+	return errs.ErrBadRequest
+}
+
 func HandleErr(w http.ResponseWriter, err error) {
+	if ve, ok := errors.AsType[*ValidationError](err); ok {
+		Err(w, http.StatusUnprocessableEntity, ve.Error(), ve.Details)
+		return
+	}
+
 	kind := errs.Kind(err)
 	if kind == nil {
 		InternalError(w)

@@ -20,7 +20,7 @@ import (
 // .golangci.yml.
 const (
 	goArchLint   = "github.com/fe3dback/go-arch-lint@v1.19.0"
-	golangciLint = "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0"
+	golangciLint = "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0"
 )
 
 // TestEndToEnd generates each project variant with `hexgen new` and

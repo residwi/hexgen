@@ -29,8 +29,8 @@ func NewRouter(
 ) http.Handler {
 	mux := http.NewServeMux()
 
-	router := web.NewRouter(mux)
-	router.HandleFunc("GET /health", healthHandler())
+	router := web.NewRouter(mux, logger)
+	router.Handle("GET /health", healthHandler())
 {{- if .Auth}}
 
 	authMW := middleware.Auth(logger, deps.Auth)

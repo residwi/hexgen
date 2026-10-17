@@ -1,7 +1,7 @@
 package request
 
 import (
-	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,84 +11,256 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"__MODULE__/internal/platform/errs"
 	"__MODULE__/internal/platform/identity"
+	"__MODULE__/internal/platform/web/response"
 )
 
 type payload struct {
 	Name string `json:"name" validate:"required"`
 }
 
+type nestedPayload struct {
+	Address struct {
+		ZipCode string `json:"zip_code"`
+	} `json:"address"`
+}
+
 func TestBind(t *testing.T) {
 	t.Parallel()
 
-	t.Run("decodes a valid body", func(t *testing.T) {
+	t.Run("decodes a valid body and writes nothing", func(t *testing.T) {
 		t.Parallel()
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":"ada"}`))
 
-		got, ok := Bind[payload](w, r)
+		got, err := Bind[payload](w, r)
 
-		require.True(t, ok)
+		require.NoError(t, err)
 		assert.Equal(t, payload{Name: "ada"}, got)
+		assert.Empty(t, w.Body.String())
 	})
 
-	t.Run("rejects malformed JSON with 400", func(t *testing.T) {
+	t.Run("returns malformed JSON for broken syntax and writes nothing", func(t *testing.T) {
 		t.Parallel()
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{`))
 
-		_, ok := Bind[payload](w, r)
+		_, err := Bind[payload](w, r)
 
-		assert.False(t, ok)
-		assert.Equal(t, http.StatusBadRequest, w.Code)
+		require.ErrorIs(t, err, errs.ErrBadRequest)
+		require.EqualError(t, err, "bad request: malformed JSON")
+		assert.Empty(t, w.Body.String())
 	})
 
-	t.Run("rejects an unknown field with 400", func(t *testing.T) {
+	t.Run("returns malformed JSON for an empty body", func(t *testing.T) {
+		t.Parallel()
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(``))
+
+		_, err := Bind[payload](w, r)
+
+		assert.EqualError(t, err, "bad request: malformed JSON")
+	})
+
+	t.Run("returns malformed JSON for a top-level array without naming the Go type", func(t *testing.T) {
+		t.Parallel()
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`[]`))
+
+		_, err := Bind[payload](w, r)
+
+		assert.EqualError(t, err, "bad request: malformed JSON")
+	})
+
+	t.Run("returns malformed JSON for a top-level string", func(t *testing.T) {
+		t.Parallel()
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`"x"`))
+
+		_, err := Bind[payload](w, r)
+
+		assert.EqualError(t, err, "bad request: malformed JSON")
+	})
+
+	t.Run("returns malformed JSON for a second value after the body", func(t *testing.T) {
+		t.Parallel()
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":"ada"} {"nope":1}`))
+
+		_, err := Bind[payload](w, r)
+
+		assert.EqualError(t, err, "bad request: malformed JSON")
+	})
+
+	t.Run("returns malformed JSON for trailing garbage after the body", func(t *testing.T) {
+		t.Parallel()
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":"ada"} x`))
+
+		_, err := Bind[payload](w, r)
+
+		assert.EqualError(t, err, "bad request: malformed JSON")
+	})
+
+	t.Run("accepts trailing whitespace after the body", func(t *testing.T) {
+		t.Parallel()
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("{\"name\":\"ada\"}  \n"))
+
+		got, err := Bind[payload](w, r)
+
+		require.NoError(t, err)
+		assert.Equal(t, payload{Name: "ada"}, got)
+	})
+
+	t.Run("returns a bad request error naming an unknown field", func(t *testing.T) {
 		t.Parallel()
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"nope":1}`))
 
-		_, ok := Bind[payload](w, r)
+		_, err := Bind[payload](w, r)
 
-		assert.False(t, ok)
-		assert.Equal(t, http.StatusBadRequest, w.Code)
+		require.ErrorIs(t, err, errs.ErrBadRequest)
+		assert.EqualError(t, err, `bad request: unknown field "nope"`)
 	})
 
-	t.Run("rejects a body over 1MiB with 400", func(t *testing.T) {
+	t.Run("names a wrong-type field by its json name without Go type names", func(t *testing.T) {
+		t.Parallel()
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":1}`))
+
+		_, err := Bind[payload](w, r)
+
+		require.ErrorIs(t, err, errs.ErrBadRequest)
+		assert.EqualError(t, err, `bad request: invalid type for "name"`)
+	})
+
+	t.Run("names a nested wrong-type field by its json path", func(t *testing.T) {
+		t.Parallel()
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"address":{"zip_code":5}}`))
+
+		_, err := Bind[nestedPayload](w, r)
+
+		assert.EqualError(t, err, `bad request: invalid type for "address.zip_code"`)
+	})
+
+	t.Run("returns too large when trailing data crosses the 1MiB cap", func(t *testing.T) {
+		t.Parallel()
+
+		body := `{"name":"ada"} "` + strings.Repeat("a", (1<<20)+1024) + `"`
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+
+		_, err := Bind[payload](w, r)
+
+		assert.EqualError(t, err, "bad request: request body too large")
+	})
+
+	t.Run("merges a request type's own rules into the details", func(t *testing.T) {
+		t.Parallel()
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":"ada","code":"bad"}`))
+
+		_, err := Bind[ruledPayload](w, r)
+
+		ve, ok := errors.AsType[*response.ValidationError](err)
+		require.True(t, ok)
+		assert.Equal(t, &response.ValidationError{Details: map[string]any{"code": "must be OK"}}, ve)
+	})
+
+	t.Run("runs a request type's own rules even when a tag failed", func(t *testing.T) {
+		t.Parallel()
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"code":"bad"}`))
+
+		_, err := Bind[ruledPayload](w, r)
+
+		ve, ok := errors.AsType[*response.ValidationError](err)
+		require.True(t, ok)
+		assert.Equal(t, &response.ValidationError{Details: map[string]any{
+			"name": "this field is required",
+			"code": "must be OK",
+		}}, ve)
+	})
+
+	t.Run("keeps the tag message when a rule reports the same field", func(t *testing.T) {
+		t.Parallel()
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"code":"OK"}`))
+
+		_, err := Bind[ruledPayload](w, r)
+
+		ve, ok := errors.AsType[*response.ValidationError](err)
+		require.True(t, ok)
+		assert.Equal(t, &response.ValidationError{Details: map[string]any{"name": "this field is required"}}, ve)
+	})
+
+	t.Run("returns the request when tags and rules both pass", func(t *testing.T) {
+		t.Parallel()
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":"ada","code":"OK"}`))
+
+		got, err := Bind[ruledPayload](w, r)
+
+		require.NoError(t, err)
+		assert.Equal(t, ruledPayload{Name: "ada", Code: "OK"}, got)
+	})
+
+	t.Run("runs the tags against the zero value for a null body", func(t *testing.T) {
+		t.Parallel()
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`null`))
+
+		_, err := Bind[payload](w, r)
+
+		ve, ok := errors.AsType[*response.ValidationError](err)
+		require.True(t, ok)
+		assert.Equal(t, &response.ValidationError{Details: map[string]any{"name": "this field is required"}}, ve)
+	})
+
+	t.Run("returns a bad request error for a body over 1MiB", func(t *testing.T) {
 		t.Parallel()
 
 		bigBody := `{"name":"` + strings.Repeat("a", (1<<20)+1024) + `"}`
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(bigBody))
 
-		_, ok := Bind[payload](w, r)
+		_, err := Bind[payload](w, r)
 
-		assert.False(t, ok)
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-		assert.Contains(t, w.Body.String(), "request body too large")
+		require.ErrorIs(t, err, errs.ErrBadRequest)
+		assert.EqualError(t, err, "bad request: request body too large")
 	})
 
-	t.Run("reports validation failures as 422 with details", func(t *testing.T) {
+	t.Run("returns a validation error carrying the field details", func(t *testing.T) {
 		t.Parallel()
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":""}`))
 
-		_, ok := Bind[payload](w, r)
+		_, err := Bind[payload](w, r)
 
-		require.False(t, ok)
-		require.Equal(t, http.StatusUnprocessableEntity, w.Code)
-
-		var body struct {
-			Error struct {
-				Details map[string]any `json:"details"`
-			} `json:"error"`
-		}
-		require.NoError(t, json.NewDecoder(w.Body).Decode(&body))
-		assert.Equal(t, map[string]any{"name": "this field is required"}, body.Error.Details)
+		ve, ok := errors.AsType[*response.ValidationError](err)
+		require.True(t, ok)
+		assert.Equal(t, &response.ValidationError{Details: map[string]any{"name": "this field is required"}}, ve)
+		assert.Empty(t, w.Body.String())
 	})
 }
 
@@ -99,28 +271,25 @@ func TestParseUUIDParam(t *testing.T) {
 		t.Parallel()
 
 		want := uuid.New()
-		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodGet, "/", nil)
 		r.SetPathValue("id", want.String())
 
-		got, ok := ParseUUIDParam(w, r, "id")
+		got, err := ParseUUIDParam(r, "id")
 
-		require.True(t, ok)
+		require.NoError(t, err)
 		assert.Equal(t, want, got)
 	})
 
-	t.Run("rejects a non-uuid with 400 naming the parameter", func(t *testing.T) {
+	t.Run("returns a bad request error naming the parameter", func(t *testing.T) {
 		t.Parallel()
 
-		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodGet, "/", nil)
 		r.SetPathValue("product_id", "not-a-uuid")
 
-		_, ok := ParseUUIDParam(w, r, "product_id")
+		_, err := ParseUUIDParam(r, "product_id")
 
-		require.False(t, ok)
-		require.Equal(t, http.StatusBadRequest, w.Code)
-		assert.Contains(t, w.Body.String(), "invalid product_id")
+		require.ErrorIs(t, err, errs.ErrBadRequest)
+		assert.EqualError(t, err, "bad request: invalid product_id")
 	})
 }
 
@@ -133,25 +302,22 @@ func TestRequireUser(t *testing.T) {
 		want := identity.Identity{UserID: uuid.New(), Role: "user"}
 		r := httptest.NewRequest(http.MethodGet, "/", nil)
 		r = r.WithContext(identity.NewContext(r.Context(), want))
-		w := httptest.NewRecorder()
 
-		got, ok := RequireUser(w, r)
+		got, err := RequireUser(r)
 
-		require.True(t, ok)
+		require.NoError(t, err)
 		assert.Equal(t, want, got)
-		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
-	t.Run("writes 401 when no user in context", func(t *testing.T) {
+	t.Run("returns an unauthorized error when no user is in context", func(t *testing.T) {
 		t.Parallel()
 
 		r := httptest.NewRequest(http.MethodGet, "/", nil)
-		w := httptest.NewRecorder()
 
-		_, ok := RequireUser(w, r)
+		_, err := RequireUser(r)
 
-		assert.False(t, ok)
-		assert.Equal(t, http.StatusUnauthorized, w.Code)
+		require.ErrorIs(t, err, errs.ErrUnauthorized)
+		assert.EqualError(t, err, "unauthorized: authentication required")
 	})
 }
 
@@ -209,11 +375,31 @@ func TestValidationDetails(t *testing.T) {
 		})
 
 		assert.Equal(t, map[string]any{
-			"iD":      "must be a valid UUID",
+			"id":      "must be a valid UUID",
 			"website": "must be a valid URL",
 			"age":     "must be greater than or equal to 18",
 			"score":   "must be less than or equal to 100",
 		}, got)
+	})
+
+	t.Run("reports min and max on a number as a value, not as characters", func(t *testing.T) {
+		t.Parallel()
+
+		tooMany := int64(11)
+		got := validationDetails(numberBoundsStruct{Amount: -1, Limit: &tooMany})
+
+		assert.Equal(t, map[string]any{
+			"amount": "must be greater than or equal to 0",
+			"limit":  "must be less than or equal to 10",
+		}, got)
+	})
+
+	t.Run("keys a field by its json name, not its Go name", func(t *testing.T) {
+		t.Parallel()
+
+		got := validationDetails(snakeCaseStruct{MinOrderAmount: -1})
+
+		assert.Equal(t, map[string]any{"min_order_amount": "must be greater than or equal to 0"}, got)
 	})
 
 	t.Run("falls back to the tag name for an unmapped tag", func(t *testing.T) {
@@ -234,18 +420,43 @@ func TestValidationDetails(t *testing.T) {
 }
 
 type tagStruct struct {
-	Name  string `validate:"required,min=2,max=50"`
-	Email string `validate:"required,email"`
-	Role  string `validate:"required,oneof=admin user"`
+	Name  string `json:"name"  validate:"required,min=2,max=50"`
+	Email string `json:"email" validate:"required,email"`
+	Role  string `json:"role"  validate:"required,oneof=admin user"`
 }
 
 type boundedStruct struct {
-	ID      string `validate:"required,uuid"`
-	Website string `validate:"required,url"`
-	Age     int    `validate:"required,gte=18"`
-	Score   int    `validate:"required,lte=100"`
+	ID      string `json:"id"      validate:"required,uuid"`
+	Website string `json:"website" validate:"required,url"`
+	Age     int    `json:"age"     validate:"required,gte=18"`
+	Score   int    `json:"score"   validate:"required,lte=100"`
 }
 
 type alphanumStruct struct {
-	Value string `validate:"required,alphanum"`
+	Value string `json:"value" validate:"required,alphanum"`
+}
+
+type numberBoundsStruct struct {
+	Amount int    `json:"amount" validate:"min=0"`
+	Limit  *int64 `json:"limit"  validate:"omitempty,max=10"`
+}
+
+type snakeCaseStruct struct {
+	MinOrderAmount int `json:"min_order_amount,omitempty" validate:"gte=0"`
+}
+
+type ruledPayload struct {
+	Name string `json:"name" validate:"required"`
+	Code string `json:"code"`
+}
+
+func (p *ruledPayload) Validate() map[string]string {
+	problems := map[string]string{}
+	if p.Code != "OK" {
+		problems["code"] = "must be OK"
+	}
+	if p.Name == "" {
+		problems["name"] = "rule says name is empty"
+	}
+	return problems
 }
