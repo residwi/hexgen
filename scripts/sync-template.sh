@@ -25,16 +25,21 @@ git -C "$src" log --oneline "$from..$to"
 echo
 
 # The template's identity and shop words, as the skeleton spells them.
-neutralize='s#github.com/residwi/go-api-project-template#__MODULE__#g; s#ecommerce-api#__PROJECT_NAME__#g; s#"customer"#"user"#g'
+neutralize='s#github\\.com/residwi/go-api-project-template#__MODULE__#g; s#github.com/residwi/go-api-project-template#__MODULE__#g; s#ecommerce-api#__PROJECT_NAME__#g; s#"customer"#"user"#g'
 
 # target prints where a template path lives in the skeleton, or nothing when
 # hexgen keeps no copy of it (a shop module, a doc, a migration it reshaped).
-# A file new upstream goes into an existing internal/ package.
+# A file new upstream goes into an existing internal/ package, or into the
+# skeleton when it is under internal/platform/, which hexgen mirrors whole.
 target() {
 	for t in "$td/auth/$1" "$td/skeleton/$1" "$td/skeleton/$1.tmpl"; do
 		[ -e "$root/$t" ] && { echo "$t"; return; }
 	done
-	case $1 in internal/*) ;; *) return ;; esac
+	case $1 in
+	internal/platform/*) echo "$td/skeleton/$1"; return ;;
+	internal/*) ;;
+	*) return ;;
+	esac
 	for t in "$td/skeleton/$1" "$td/auth/$1"; do
 		[ -d "$root/$(dirname "$t")" ] && { echo "$t"; return; }
 	done
