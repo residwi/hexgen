@@ -224,6 +224,8 @@ linters:
           deny:
             - pkg: log$
               desc: Use log/slog instead, see https://go.dev/blog/slog
+            - pkg: encoding/json$
+              desc: Use encoding/json/v2 (and encoding/json/jsontext) instead, see https://go.dev/doc/go1.27
 
     embeddedstructfieldcheck:
       # Checks that sync.Mutex and sync.RWMutex are not used as embedded fields.
@@ -405,6 +407,28 @@ linters:
         - make
         - strings.SplitN
         - http.MaxBytesReader
+
+    musttag:
+      # musttag knows only encoding/json v1; without these it checks no JSON call at all.
+      functions:
+        - name: encoding/json/v2.Marshal
+          tag: json
+          arg-pos: 0
+        - name: encoding/json/v2.MarshalWrite
+          tag: json
+          arg-pos: 1
+        - name: encoding/json/v2.MarshalEncode
+          tag: json
+          arg-pos: 1
+        - name: encoding/json/v2.Unmarshal
+          tag: json
+          arg-pos: 1
+        - name: encoding/json/v2.UnmarshalRead
+          tag: json
+          arg-pos: 1
+        - name: encoding/json/v2.UnmarshalDecode
+          tag: json
+          arg-pos: 1
 
     nakedret:
       # Make an issue if func has more lines of code than this setting, and it has naked returns.
