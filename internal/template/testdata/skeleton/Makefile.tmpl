@@ -1,10 +1,12 @@
 # Makefile
 
-APP_NAME := __PROJECT_NAME__
+-include .env
+
+APP_NAME ?= __PROJECT_NAME__
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GOBIN := $(or $(shell go env GOBIN),$(shell go env GOPATH)/bin)
 GOOSE := $(GOBIN)/goose
+GOOSE_VERSION = $(shell go list -m -f '{{"{{.Version}}"}}' github.com/pressly/goose/v3)
 
 DB_HOST ?= localhost
 DB_PORT ?= 5432
@@ -64,13 +66,7 @@ test-coverage: ## Run tests with coverage report (requires Docker)
 
 .PHONY: lint
 lint: ## Run linter
-	@if command -v golangci-lint > /dev/null; then \
-		golangci-lint run ./...; \
-	else \
-		echo "Installing golangci-lint..."; \
-		go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest; \
-		golangci-lint run ./...; \
-	fi
+	golangci-lint run ./...
 
 .PHONY: check-arch
 check-arch: ## Check layer dependencies (domain -> core -> adapter) via go-arch-lint
@@ -110,22 +106,23 @@ clean: ## Clean build artifacts
 	@echo "Cleaning..."
 	rm -rf bin/
 	rm -f coverage.out coverage.html
+	rm -rf tmp/
 
 # Database commands
 .PHONY: db-create
-db-create: ## Create the database
+db-create: ## Create the database in the compose postgres
 	@echo "Creating database..."
-	PGPASSWORD=$(DB_PASSWORD) createdb -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) $(DB_NAME) || true
+	docker compose exec -T postgres createdb -U $(DB_USER) $(DB_NAME) || true
 
 .PHONY: db-drop
-db-drop: ## Drop the database
+db-drop: ## Drop the database in the compose postgres, closing open connections
 	@echo "Dropping database..."
-	PGPASSWORD=$(DB_PASSWORD) dropdb -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) $(DB_NAME) || true
+	docker compose exec -T postgres dropdb -U $(DB_USER) --if-exists --force $(DB_NAME)
 
 .PHONY: migrate-install
-migrate-install: ## Install goose CLI
+migrate-install: ## Install the goose CLI at the version go.mod pins
 	@echo "Installing goose..."
-	go install github.com/pressly/goose/v3/cmd/goose@latest
+	go install github.com/pressly/goose/v3/cmd/goose@$(GOOSE_VERSION)
 
 .PHONY: migrate-up
 migrate-up: ## Run all pending migrations
@@ -191,9 +188,9 @@ setup: ## Setup development environment
 	@echo "Setting up development environment..."
 	go mod download
 	go install github.com/air-verse/air@latest
-	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
-	go install github.com/pressly/goose/v3/cmd/goose@latest
+	$(MAKE) migrate-install
 	cp -n .env.example .env || true
+	@command -v golangci-lint > /dev/null || echo "golangci-lint not found: brew install golangci-lint (https://golangci-lint.run/docs/welcome/install/local/)"
 	@echo "Setup complete!"
 
 .PHONY: deps
@@ -203,15 +200,14 @@ deps: ## Download dependencies
 	go mod verify
 
 .PHONY: mocks
-mocks: ## Generate mocks
+mocks: ## Generate mocks with the vektra/mockery:3 image
 	@echo "Generating mocks..."
-	go run github.com/vektra/mockery/v3@v3.8.1
+	docker run --rm -q --pull always -v "$(CURDIR)":/src -w /src \
+		-v __PROJECT_NAME__-mockery-mod:/go/pkg/mod -v __PROJECT_NAME__-mockery-build:/tmp/.cache \
+		vektra/mockery:3
 
 .PHONY: all
 all: fmt vet check-arch lint test build ## Run all checks and build
-
-.PHONY: ci
-ci: deps fmt vet check-arch lint test ## Run CI pipeline
 
 .PHONY: test-clean
 test-clean: ## Remove this project's test containers (postgres + redis)
@@ -220,8 +216,7 @@ test-clean: ## Remove this project's test containers (postgres + redis)
 {{- if .Auth}}
 
 .PHONY: seed
-seed: ## Apply seed data to the database (override DATABASE_URL or DB_* vars)
-	@if [ -z "$(DATABASE_URL)" ]; then echo "DATABASE_URL is not set"; exit 1; fi
+seed: ## Apply seed data to the compose postgres
 	@echo "Applying seed data..."
-	psql "$(DATABASE_URL)" -f db/seeds/data.sql
+	docker compose exec -T postgres psql -U $(DB_USER) -d $(DB_NAME) -v ON_ERROR_STOP=1 < db/seeds/data.sql
 {{- end}}
